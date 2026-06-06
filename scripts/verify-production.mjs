@@ -5,7 +5,7 @@ const allowHttp = process.argv.includes('--allow-http');
 const target = process.argv.find((arg) => arg.startsWith('http')) || process.env.APP_PUBLIC_ORIGIN || '';
 const verificationEmail = process.env.PRODUCTION_VERIFY_EMAIL || '';
 const verificationSessionToken = process.env.PRODUCTION_VERIFY_SESSION_TOKEN || '';
-const verificationPlanId = process.env.PRODUCTION_VERIFY_PLAN_ID || 'krw-1000-toss';
+const verificationPlanId = process.env.PRODUCTION_VERIFY_PLAN_ID || 'krw-1000-stripe';
 
 if (!target) {
   throw new Error('Set APP_PUBLIC_ORIGIN or pass a production URL to verify.');
@@ -39,7 +39,7 @@ await record('Public app loads', async () => {
 });
 
 await record('Payment success route serves SPA', async () => {
-  const response = await fetchText('/payment/success?paymentKey=verify&orderId=verify&amount=1000');
+  const response = await fetchText('/payment/success?provider=stripe&session_id=verify');
   if (!response.ok) throw new Error(`Expected 200, got ${response.status}`);
   if (!response.text.includes('GlobalPulse')) throw new Error('Payment success route did not serve app HTML');
   return `${response.status} ${response.contentType}`;
@@ -71,7 +71,7 @@ await record('Payment create rejects missing session', async () => {
     body: JSON.stringify({
       idempotencyKey: 'verify',
       origin: origin.origin,
-      planId: 'krw-1000-toss',
+      planId: verificationPlanId,
     }),
     method: 'POST',
   });
@@ -94,13 +94,26 @@ if (verificationSessionToken) {
     });
     if (!response.ok) throw new Error(`Expected 200, got ${response.status}: ${JSON.stringify(body)}`);
     if (body?.status !== 'pending') throw new Error(`Expected pending payment, got ${body?.status}`);
-    if (!body?.clientKey) throw new Error('Payment payload must include a Toss client key');
     if (!String(body?.orderId || '').startsWith('gp_')) throw new Error('Payment orderId must use gp_ prefix');
-    if (body?.successUrl !== `${origin.origin}/payment/success`) {
-      throw new Error(`Unexpected successUrl ${body?.successUrl}`);
-    }
-    if (body?.failUrl !== `${origin.origin}/payment/fail`) {
-      throw new Error(`Unexpected failUrl ${body?.failUrl}`);
+    if (body?.provider === 'stripe') {
+      if (!body?.sessionId) throw new Error('Stripe payment payload must include a sessionId');
+      if (!body?.checkoutUrl) throw new Error('Stripe payment payload must include a checkoutUrl');
+      if (!String(body.successUrl || '').startsWith(`${origin.origin}/payment/success?provider=stripe`)) {
+        throw new Error(`Unexpected Stripe successUrl ${body?.successUrl}`);
+      }
+      if (!String(body.failUrl || '').startsWith(`${origin.origin}/payment/fail?provider=stripe`)) {
+        throw new Error(`Unexpected Stripe failUrl ${body?.failUrl}`);
+      }
+    } else if (body?.provider === 'toss') {
+      if (!body?.clientKey) throw new Error('Toss payment payload must include a client key');
+      if (body?.successUrl !== `${origin.origin}/payment/success`) {
+        throw new Error(`Unexpected Toss successUrl ${body?.successUrl}`);
+      }
+      if (body?.failUrl !== `${origin.origin}/payment/fail`) {
+        throw new Error(`Unexpected Toss failUrl ${body?.failUrl}`);
+      }
+    } else {
+      throw new Error(`Unexpected payment provider ${body?.provider}`);
     }
     if (!Number.isInteger(Number(body?.amount)) || Number(body.amount) <= 0) {
       throw new Error(`Payment amount must be positive, got ${body?.amount}`);

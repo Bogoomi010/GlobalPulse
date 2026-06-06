@@ -27,12 +27,10 @@
 - Configure `AUTH_EMAIL_FROM` with a verified sender domain.
 - Ensure `ALLOW_DEMO_LOGIN` is not set in production.
 - Ensure `AUTH_EMAIL_DELIVERY=log` is not set in production.
-- Ensure `TOSS_API_BASE_URL` is unset or `https://api.tosspayments.com` in production.
-- Configure Toss Payments production client key.
-- Configure `VITE_TOSS_CLIENT_KEY` for the browser build.
-- Configure `TOSS_CLIENT_KEY` for the Pages Functions response.
-- Configure Toss Payments secret key.
-- Configure Toss Payments webhook secret.
+- Configure `PAYMENT_PROVIDER=stripe`.
+- Ensure `STRIPE_API_BASE_URL` is unset or `https://api.stripe.com` in production.
+- Configure Stripe production secret key.
+- Configure Stripe webhook signing secret.
 - Configure `SESSION_TOKEN_SECRET` with a high-entropy production value.
 - Configure `MODERATION_ADMIN_TOKEN` with a high-entropy production value.
 - Configure `APP_PUBLIC_ORIGIN` to the production HTTPS origin used for payment callbacks.
@@ -44,10 +42,8 @@
 
 ## Required Deployment Variables
 
-- `VITE_TOSS_CLIENT_KEY`
-- `TOSS_CLIENT_KEY`
-- `TOSS_SECRET_KEY`
-- `TOSS_WEBHOOK_SECRET`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
 - `SESSION_TOKEN_SECRET`
 - `MODERATION_ADMIN_TOKEN`
 - `PAYMENT_PROVIDER`
@@ -61,7 +57,7 @@
 
 If payment secrets or production webhook URLs are missing, do not deploy as a real-payment service and do not tell users that payments are available.
 
-`yarn deploy` runs `yarn check:deploy` and must fail until the production D1 UUID, Toss live keys, webhook secret, session secret, moderation admin token, `APP_PUBLIC_ORIGIN`, `LAUNCH_REVIEW_ACK`, `PAYMENT_PROVIDER=toss`, and verified email auth settings are configured.
+`yarn deploy` runs `yarn check:deploy` and must fail until the production D1 UUID, Stripe live secret key, webhook signing secret, session secret, moderation admin token, `APP_PUBLIC_ORIGIN`, `LAUNCH_REVIEW_ACK`, `PAYMENT_PROVIDER=stripe`, and verified email auth settings are configured.
 
 ## Post-Deploy Verification
 
@@ -78,14 +74,14 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 - Wallet, paid comment, and payment creation APIs reject requests without a valid Bearer session token.
 - Top-up creates a pending payment through `/api/payments/create`.
 - Payment success/fail callback URLs use `APP_PUBLIC_ORIGIN`, not a client-supplied origin.
-- Browser opens Toss Payments V2 Standard payment window from the selected top-up plan.
-- Toss payment success calls `/api/payments/confirm` with server-side amount verification.
-- Toss payment failure or cancellation calls `/api/payments/fail` and does not increase balance.
+- Browser redirects to Stripe Checkout from the selected top-up plan.
+- Stripe payment success calls `/api/payments/confirm` with server-side Checkout Session verification.
+- Stripe payment failure or cancellation calls `/api/payments/fail` and does not increase balance.
 - Approved payment increases wallet balance once.
 - Failed or cancelled payment appears in transaction history without increasing wallet balance.
-- Unsigned or incorrectly signed Toss webhooks are rejected when `TOSS_WEBHOOK_SECRET` is configured.
+- Unsigned or incorrectly signed Stripe webhooks are rejected when `STRIPE_WEBHOOK_SECRET` is configured.
 - Repeated failure/cancellation callbacks do not create duplicate transaction history rows.
-- Toss `CANCELED` or `PARTIAL_CANCELED` webhook after a paid top-up records a refund transaction and adjusts wallet balance when sufficient balance remains.
+- Stripe payment completion webhooks do not duplicate already confirmed top-ups.
 - Paid comment subtracts 100 KRW and appears in the comment list.
 - Duplicate comment reports from the same anonymous session are idempotent.
 - `/api/moderation/reports` rejects missing admin tokens, lists reported comments, and can hide or restore a reviewed comment.

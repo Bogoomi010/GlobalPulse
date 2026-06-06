@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "pages:dev": "wrangler pages dev dist --persist-to .wrangler/state --binding SESSION_TOKEN_SECRET=local-dev-session-secret --binding MODERATION_ADMIN_TOKEN=local-dev-moderation-token --binding APP_PUBLIC_ORIGIN=http://127.0.0.1:8788 --binding ALLOW_DEMO_LOGIN=true --binding TOSS_CLIENT_KEY=test_ck_replace_me --binding TOSS_SECRET_KEY=test_sk_replace_me --binding TOSS_WEBHOOK_SECRET=local-dev-webhook-secret --port 8788 --no-install-skills",
+    "pages:dev": "wrangler pages dev dist --persist-to .wrangler/state --binding SESSION_TOKEN_SECRET=local-dev-session-secret --binding MODERATION_ADMIN_TOKEN=local-dev-moderation-token --binding APP_PUBLIC_ORIGIN=http://127.0.0.1:8788 --binding PAYMENT_PROVIDER=stripe --binding ALLOW_DEMO_LOGIN=true --binding STRIPE_SECRET_KEY=sk_test_replace_me --binding STRIPE_WEBHOOK_SECRET=whsec_local_dev_webhook_secret --binding TOSS_CLIENT_KEY=test_ck_replace_me --binding TOSS_SECRET_KEY=test_sk_replace_me --binding TOSS_WEBHOOK_SECRET=local-dev-webhook-secret --port 8788 --no-install-skills",
     "db:migrate:local": "node scripts/apply-local-migrations.mjs",
     "db:migrate:production": "node scripts/apply-production-migrations.mjs",
     "db:migrate:production:dry-run": "node scripts/apply-production-migrations.mjs --dry-run",

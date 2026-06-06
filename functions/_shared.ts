@@ -5,6 +5,9 @@ export type Env = {
   TOSS_SECRET_KEY?: string;
   TOSS_WEBHOOK_SECRET?: string;
   TOSS_API_BASE_URL?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_API_BASE_URL?: string;
   PAYMENT_PROVIDER?: string;
   AUTH_PROVIDER?: string;
   AUTH_EMAIL_DELIVERY?: string;
@@ -364,7 +367,8 @@ export function tossAuthHeader(secretKey: string): string {
 }
 
 export function paymentProviderReady(env: Env): boolean {
-  return Boolean(env.TOSS_CLIENT_KEY && env.TOSS_SECRET_KEY);
+  if (env.PAYMENT_PROVIDER === 'toss') return Boolean(env.TOSS_CLIENT_KEY && env.TOSS_SECRET_KEY);
+  return Boolean(env.STRIPE_SECRET_KEY);
 }
 
 export async function recordTopupTransaction(

@@ -16,28 +16,28 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Login, wallet, top-up plan, transaction history, about, and policy screens
 - Browser-based moderation ops screen for reviewing reported paid comments with an admin token
 - Transaction history shows readable labels, payment statuses, and refund/comment/top-up transaction types
-- Cloudflare Pages Functions for issues, anonymous reactions, login, wallet, paid comments, reports, and Toss payment create/confirm/webhook
+- Cloudflare Pages Functions for issues, anonymous reactions, login, wallet, paid comments, reports, and Stripe payment create/confirm/webhook
 - D1 migrations for schema, payment plans, and dummy issue seed data
 - Server-issued session tokens protect wallet, paid comment, and payment creation APIs
 - Stored sessions can be checked through `/api/auth/me` and revoked through `/api/auth/logout`
 - Email OTP login endpoints are prepared for production through Resend, with demo login allowed only by explicit local binding
 - Comment reports are idempotent per anonymous session to reduce moderation queue spam
 - Token-protected moderation API and ops screen list reported comments and record hide/restore/dismiss review actions
-- Local full-stack smoke test runs Pages Functions with local D1 through Wrangler, verifies OTP login with local-only email log delivery, and exercises Toss confirm/refund webhook flows plus webhook signature enforcement through a local provider mock
+- Local full-stack smoke test runs Pages Functions with local D1 through Wrangler, verifies OTP login with local-only email log delivery, and exercises Stripe Checkout confirmation/webhook flows plus webhook signature enforcement through a local provider mock
 - API smoke coverage verifies anonymous reaction add, switch, cancel, and `/api/issues` aggregate persistence
-- Production deploy gate blocks deployment when D1, Toss live payment secrets, moderation admin token, fixed payment callback origin, or verified email auth settings are missing
+- Production deploy gate blocks deployment when D1, Stripe live payment secrets, moderation admin token, fixed payment callback origin, or verified email auth settings are missing
 - Production D1 migration script shares the local migration list and requires an explicit confirmation value before applying remote migrations
 - Production URL verification script checks the public app, D1 issue seed count, protected API behavior, payment return routes, moderation protection, and optional Resend OTP delivery
-- Production URL verification can optionally create an authenticated pending payment payload to verify Toss client key exposure and callback URLs without charging
+- Production URL verification can optionally create an authenticated pending Stripe Checkout payload to verify callback URLs without charging
 - Launch review acknowledgement gate blocks production readiness until legal, tax, refund, minor payment, privacy, security, payment provider, and moderation review is explicitly completed
 - Payment blocked state when provider environment variables are missing
-- Payment server code now routes create/confirm/webhook flows through a provider adapter, with Toss implemented first
+- Payment server code now routes create/confirm/webhook flows through a provider adapter, with Stripe Checkout as the global default and Toss retained as a secondary adapter
 
 ## Milestones
 
 1. Data model
    - Add D1 schema for issues, sources, sessions, reactions, users, wallets, transactions, payment plans, payments, comments, and reports.
-   - Seed dummy issues and KR payment plans.
+   - Seed dummy issues and KRW Stripe payment plans.
 
 2. UI
    - Replace placeholder shop with GlobalPulse feed, filters, sorting, details, wallet, and policy screens.
@@ -65,21 +65,20 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: The frontend ops screen can connect with `MODERATION_ADMIN_TOKEN` and review reported comments without exposing the token in deployment env.
 
 6. Payments
-   - Done: Toss create/confirm/fail/webhook endpoints are implemented.
-   - Done: Browser payment launch uses Toss Payments V2 Standard SDK.
+   - Done: Stripe Checkout create/confirm/fail/webhook endpoints are implemented.
+   - Done: Browser payment launch redirects to hosted Stripe Checkout.
    - Done: `/payment/success` confirms the payment server-side.
    - Done: `/payment/fail` records failure or cancellation without increasing wallet balance.
-   - Done: Server-side amount verification is required before Toss confirmation.
+   - Done: Server-side amount verification is required before wallet credit is applied.
    - Done: Payment status transitions and duplicate paid payment checks are implemented before wallet top-up.
    - Done: Payment creation idempotency returns the original pending payment payload on duplicate requests.
-   - Done: Payment provider adapter boundary is in place so Stripe/PayPal can be added without rewriting wallet logic.
-   - Done: Webhook cancellation after a paid top-up records refund transactions and adjusts wallet balance when possible.
-   - Done: Local smoke test configures `TOSS_WEBHOOK_SECRET` and verifies missing or invalid Toss webhook signatures are rejected.
-   - Done: Payment webhooks require configured `TOSS_WEBHOOK_SECRET` at runtime before any payload is processed.
+   - Done: Payment provider adapter boundary is in place so additional providers can be added without rewriting wallet logic.
+   - Done: Local smoke test configures `STRIPE_WEBHOOK_SECRET` and verifies missing or invalid Stripe webhook signatures are rejected.
+   - Done: Payment webhooks require configured provider webhook secrets at runtime before any payload is processed.
    - Done: Payment success/fail callback URLs use configured `APP_PUBLIC_ORIGIN` instead of trusting the client-supplied origin.
    - Done: Payment creation requires configured `APP_PUBLIC_ORIGIN` at runtime and works without accepting a client origin.
-   - Done: Refunded payments are terminal for confirm/webhook processing and cannot be confirmed back into paid wallet credit.
-   - Remaining: Verify the full browser payment request with Toss test/live keys and production callback URLs.
+   - Done: Completed Stripe Checkout Sessions can be confirmed by redirect or webhook without duplicating wallet credit.
+   - Remaining: Configure Stripe test/live keys and production webhook endpoint, then verify hosted Checkout in deployment.
 
 7. Deployment
    - Add Cloudflare Pages/Workers or equivalent server runtime.
@@ -95,14 +94,13 @@ This repository now contains the frontend MVP shell plus the first production AP
 
 Frontend:
 
-- `VITE_TOSS_CLIENT_KEY`
+- None required for hosted Stripe Checkout.
 
 Server:
 
-- `TOSS_CLIENT_KEY`
-- `TOSS_SECRET_KEY`
-- `TOSS_WEBHOOK_SECRET`
-- `PAYMENT_PROVIDER=toss`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `PAYMENT_PROVIDER=stripe`
 - `SESSION_TOKEN_SECRET`
 - `MODERATION_ADMIN_TOKEN`
 - `AUTH_PROVIDER=resend`
@@ -119,7 +117,7 @@ Do not claim real payments are available until the payment provider keys, webhoo
 ## Remaining Production Work
 
 - Resend sender/domain verification and email OTP delivery test in production
-- Toss test/live key verification in a deployed environment
+- Stripe test/live key verification in a deployed environment
 - D1 migration execution in production
 - Production deployment URL verification
 - Legal/tax/refund/minor payment/privacy/moderation review

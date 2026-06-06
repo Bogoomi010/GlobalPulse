@@ -29,7 +29,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
 
     const existing = await env.DB.prepare(
       `
-        SELECT id, provider_name, provider_order_id, amount, currency_code, status
+        SELECT id, provider_name, provider_order_id, provider_payment_id, amount, currency_code, status
         FROM payments
         WHERE idempotency_key = ? AND user_id = ?
       `,
@@ -39,6 +39,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
         id: string;
         provider_name: string;
         provider_order_id: string;
+        provider_payment_id: string | null;
         amount: number;
         currency_code: string;
         status: string;
@@ -49,16 +50,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       if (!provider) return badRequest('Payment provider is not supported', 400);
       if (!provider.isReady(env)) return badRequest('Payment provider is not configured', 503);
 
-      return json(
-        provider.buildCheckoutPayload(env, {
-          origin,
-          paymentId: existing.id,
-          orderId: existing.provider_order_id,
-          amount: Number(existing.amount),
-          currencyCode: existing.currency_code,
-          status: existing.status,
-        }),
-      );
+      const payload = await provider.buildCheckoutPayload(env, {
+        origin,
+        paymentId: existing.id,
+        orderId: existing.provider_order_id,
+        providerPaymentId: existing.provider_payment_id,
+        amount: Number(existing.amount),
+        currencyCode: existing.currency_code,
+        status: existing.status,
+      });
+      await updateProviderPaymentId(env.DB, existing.id, payload.providerPaymentId || payload.sessionId);
+      return json(payload);
     }
 
     const plan = await env.DB.prepare(
@@ -99,14 +101,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       )
       .run();
 
-    return json(provider.buildCheckoutPayload(env, {
+    const payload = await provider.buildCheckoutPayload(env, {
       paymentId,
       origin,
       orderId,
       amount: Number(plan.amount),
       currencyCode: plan.currency_code,
       status: 'pending',
-    }));
+    });
+    await updateProviderPaymentId(env.DB, paymentId, payload.providerPaymentId || payload.sessionId);
+    return json(payload);
   } catch (error) {
     return badRequest(error instanceof Error ? error.message : 'Invalid payment request');
   }
@@ -119,4 +123,23 @@ function normalizeOrigin(value?: string): string | null {
   } catch {
     return null;
   }
+}
+
+async function updateProviderPaymentId(
+  db: D1Database,
+  paymentId: string,
+  providerPaymentId?: string,
+): Promise<void> {
+  if (!providerPaymentId) return;
+  await db
+    .prepare(
+      `
+        UPDATE payments
+        SET provider_payment_id = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `,
+    )
+    .bind(providerPaymentId, paymentId)
+    .run();
 }

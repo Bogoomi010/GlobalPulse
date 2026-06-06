@@ -5,12 +5,12 @@ import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
-import { URL, fileURLToPath } from 'node:url';
+import { URL, URLSearchParams, fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const persistTo = '.wrangler/smoke-state';
 const wranglerBin = path.join(root, 'node_modules', '.bin', 'wrangler');
-const smokeWebhookSecret = 'smoke-webhook-secret-for-tests';
+const smokeWebhookSecret = 'whsec_smoke_webhook_secret_for_tests';
 
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -45,7 +45,7 @@ const jsonRequest = async (baseUrl, pathname, options = {}) => {
 
 const signedWebhookRequest = async (baseUrl, payload) => {
   const body = JSON.stringify(payload);
-  const timestamp = new Date().toISOString();
+  const timestamp = Math.floor(Date.now() / 1000);
   const signature = createHmac('sha256', smokeWebhookSecret)
     .update(`${timestamp}.${body}`)
     .digest('hex');
@@ -53,8 +53,7 @@ const signedWebhookRequest = async (baseUrl, payload) => {
   return jsonRequest(baseUrl, '/api/payments/webhook', {
     method: 'POST',
     headers: {
-      'x-toss-timestamp': timestamp,
-      'x-toss-signature': signature,
+      'Stripe-Signature': `t=${timestamp},v1=${signature}`,
     },
     body,
   });
@@ -89,9 +88,9 @@ const waitForServer = async (baseUrl, process) => {
   throw new Error('Timed out waiting for Wrangler Pages dev');
 };
 
-const startTossMock = async () => {
-  const paymentsByKey = new Map();
-  const paymentsByOrder = new Map();
+const startStripeMock = async () => {
+  const sessionsById = new Map();
+  let baseUrl = '';
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url || '/', 'http://127.0.0.1');
     const send = (status, body) => {
@@ -99,59 +98,65 @@ const startTossMock = async () => {
       response.end(JSON.stringify(body));
     };
 
-    if (request.method === 'POST' && url.pathname === '/v1/payments/confirm') {
+    if (request.method === 'POST' && url.pathname === '/v1/checkout/sessions') {
       const chunks = [];
       for await (const chunk of request) chunks.push(chunk);
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-      const payment = {
-        paymentKey: body.paymentKey,
-        orderId: body.orderId,
-        totalAmount: Number(body.amount),
-        currency: 'KRW',
-        status: 'DONE',
-        cancels: null,
+      const params = new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
+      const sessionId = `cs_test_${randomUUID().replaceAll('-', '')}`;
+      const session = {
+        id: sessionId,
+        object: 'checkout.session',
+        amount_subtotal: Number(params.get('line_items[0][price_data][unit_amount]')),
+        amount_total: Number(params.get('line_items[0][price_data][unit_amount]')),
+        client_reference_id: params.get('client_reference_id'),
+        currency: params.get('line_items[0][price_data][currency]'),
+        metadata: {
+          payment_id: params.get('metadata[payment_id]') || '',
+          order_id: params.get('metadata[order_id]') || '',
+          currency_code: params.get('metadata[currency_code]') || '',
+        },
+        payment_intent: null,
+        payment_status: 'unpaid',
+        status: 'open',
+        success_url: params.get('success_url'),
+        cancel_url: params.get('cancel_url'),
+        url: `${baseUrl}/checkout/${sessionId}`,
       };
-      paymentsByKey.set(payment.paymentKey, payment);
-      paymentsByOrder.set(payment.orderId, payment);
-      send(200, payment);
+      sessionsById.set(sessionId, session);
+      send(200, session);
       return;
     }
 
-    if (request.method === 'GET' && url.pathname.startsWith('/v1/payments/orders/')) {
-      const orderId = decodeURIComponent(url.pathname.replace('/v1/payments/orders/', ''));
-      const payment = paymentsByOrder.get(orderId);
-      send(payment ? 200 : 404, payment || { message: 'Payment not found' });
+    if (request.method === 'GET' && url.pathname.startsWith('/v1/checkout/sessions/')) {
+      const sessionId = decodeURIComponent(url.pathname.replace('/v1/checkout/sessions/', ''));
+      const session = sessionsById.get(sessionId);
+      send(session ? 200 : 404, session || { error: { message: 'Checkout Session not found' } });
       return;
     }
 
-    if (request.method === 'GET' && url.pathname.startsWith('/v1/payments/')) {
-      const paymentKey = decodeURIComponent(url.pathname.replace('/v1/payments/', ''));
-      const payment = paymentsByKey.get(paymentKey);
-      send(payment ? 200 : 404, payment || { message: 'Payment not found' });
-      return;
-    }
-
-    send(404, { message: 'Unhandled Toss mock route' });
+    send(404, { error: { message: 'Unhandled Stripe mock route' } });
   });
 
   const port = await freePort();
+  baseUrl = `http://127.0.0.1:${port}`;
   await new Promise((resolve, reject) => {
     server.listen(port, '127.0.0.1', resolve);
     server.on('error', reject);
   });
 
   return {
-    baseUrl: `http://127.0.0.1:${port}`,
-    cancelPayment(paymentKey, cancelAmount) {
-      const payment = paymentsByKey.get(paymentKey);
-      if (!payment) throw new Error(`Missing mock payment ${paymentKey}`);
-      const cancelled = {
-        ...payment,
-        status: 'CANCELED',
-        cancels: [{ cancelAmount, transactionKey: `mock_cancel_${paymentKey}` }],
+    baseUrl,
+    completeSession(sessionId) {
+      const session = sessionsById.get(sessionId);
+      if (!session) throw new Error(`Missing mock Stripe session ${sessionId}`);
+      const paid = {
+        ...session,
+        payment_intent: `pi_mock_${sessionId.slice(-12)}`,
+        payment_status: 'paid',
+        status: 'complete',
       };
-      paymentsByKey.set(paymentKey, cancelled);
-      paymentsByOrder.set(payment.orderId, cancelled);
+      sessionsById.set(sessionId, paid);
+      return paid;
     },
     close: () => new Promise((resolve) => server.close(resolve)),
   };
@@ -163,7 +168,7 @@ execFileSync('node', ['scripts/apply-local-migrations.mjs', persistTo], {
   stdio: 'inherit',
 });
 
-const tossMock = await startTossMock();
+const stripeMock = await startStripeMock();
 const port = await freePort();
 const baseUrl = `http://127.0.0.1:${port}`;
 const wrangler = spawn(
@@ -191,13 +196,19 @@ const wrangler = spawn(
     '--binding',
     'AUTH_EMAIL_DELIVERY=log',
     '--binding',
+    'PAYMENT_PROVIDER=stripe',
+    '--binding',
+    'STRIPE_SECRET_KEY=sk_test_smoke',
+    '--binding',
+    `STRIPE_WEBHOOK_SECRET=${smokeWebhookSecret}`,
+    '--binding',
+    `STRIPE_API_BASE_URL=${stripeMock.baseUrl}`,
+    '--binding',
     'TOSS_CLIENT_KEY=test_ck_smoke',
     '--binding',
     'TOSS_SECRET_KEY=test_sk_smoke',
     '--binding',
-    `TOSS_WEBHOOK_SECRET=${smokeWebhookSecret}`,
-    '--binding',
-    `TOSS_API_BASE_URL=${tossMock.baseUrl}`,
+    'TOSS_WEBHOOK_SECRET=smoke-toss-webhook-secret',
     '--log-level',
     'error',
     '--show-interactive-dev-session=false',
@@ -259,7 +270,7 @@ try {
 
   const wallet = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', { headers: auth });
   assert(wallet.response.ok, 'Authorized wallet request failed');
-  assert(wallet.body.plans.some((plan) => plan.id === 'krw-1000-toss'), 'KRW 1,000 plan missing');
+  assert(wallet.body.plans.some((plan) => plan.id === 'krw-1000-stripe'), 'KRW 1,000 Stripe plan missing');
 
   const anonymousToken = randomUUID();
   const like = await jsonRequest(baseUrl, '/api/reactions', {
@@ -546,17 +557,20 @@ try {
     method: 'POST',
     headers: auth,
     body: JSON.stringify({
-      planId: 'krw-1000-toss',
+      planId: 'krw-1000-stripe',
       idempotencyKey: paymentCreateKey,
       origin: baseUrl,
     }),
   });
   assert(payment.response.ok, 'Payment creation failed');
   assert(payment.body.status === 'pending', 'Payment should start as pending');
+  assert(payment.body.provider === 'stripe', 'Payment should use Stripe provider');
+  assert(payment.body.sessionId?.startsWith('cs_test_'), 'Stripe payment should return a Checkout Session ID');
+  assert(payment.body.checkoutUrl?.startsWith(stripeMock.baseUrl), 'Stripe payment should return a checkout URL');
   assert(payment.body.orderId.startsWith('gp_'), 'Payment orderId should use GlobalPulse prefix');
   assert(
-    payment.body.successUrl === `${baseUrl}/payment/success` &&
-      payment.body.failUrl === `${baseUrl}/payment/fail`,
+    payment.body.successUrl === `${baseUrl}/payment/success?provider=stripe&session_id={CHECKOUT_SESSION_ID}` &&
+      payment.body.failUrl.startsWith(`${baseUrl}/payment/fail?provider=stripe`),
     'Payment callback URLs should use the configured public origin',
   );
 
@@ -564,7 +578,7 @@ try {
     method: 'POST',
     headers: auth,
     body: JSON.stringify({
-      planId: 'krw-5000-toss',
+      planId: 'krw-5000-stripe',
       idempotencyKey: paymentCreateKey,
       origin: 'https://evil.example',
     }),
@@ -581,8 +595,13 @@ try {
     'Duplicate payment creation should not switch plans or amount',
   );
   assert(
-    duplicatePaymentCreate.body.successUrl === `${baseUrl}/payment/success` &&
-      duplicatePaymentCreate.body.failUrl === `${baseUrl}/payment/fail`,
+    duplicatePaymentCreate.body.sessionId === payment.body.sessionId &&
+      duplicatePaymentCreate.body.checkoutUrl === payment.body.checkoutUrl,
+    'Duplicate payment creation should keep the original Stripe Checkout Session',
+  );
+  assert(
+    duplicatePaymentCreate.body.successUrl === `${baseUrl}/payment/success?provider=stripe&session_id={CHECKOUT_SESSION_ID}` &&
+      duplicatePaymentCreate.body.failUrl.startsWith(`${baseUrl}/payment/fail?provider=stripe`),
     'Duplicate payment creation should keep the configured public callback origin',
   );
 
@@ -590,15 +609,15 @@ try {
     method: 'POST',
     headers: auth,
     body: JSON.stringify({
-      planId: 'krw-1000-toss',
+      planId: 'krw-1000-stripe',
       idempotencyKey: randomUUID(),
       origin: 'https://evil.example',
     }),
   });
   assert(hostileOriginPayment.response.ok, 'Payment creation with hostile origin body failed');
   assert(
-    hostileOriginPayment.body.successUrl === `${baseUrl}/payment/success` &&
-      hostileOriginPayment.body.failUrl === `${baseUrl}/payment/fail`,
+    hostileOriginPayment.body.successUrl === `${baseUrl}/payment/success?provider=stripe&session_id={CHECKOUT_SESSION_ID}` &&
+      hostileOriginPayment.body.failUrl.startsWith(`${baseUrl}/payment/fail?provider=stripe`),
     'Configured public origin must override client-supplied payment callback origin',
   );
 
@@ -606,14 +625,14 @@ try {
     method: 'POST',
     headers: auth,
     body: JSON.stringify({
-      planId: 'krw-1000-toss',
+      planId: 'krw-1000-stripe',
       idempotencyKey: randomUUID(),
     }),
   });
   assert(noClientOriginPayment.response.ok, 'Payment creation without client origin failed');
   assert(
-    noClientOriginPayment.body.successUrl === `${baseUrl}/payment/success` &&
-      noClientOriginPayment.body.failUrl === `${baseUrl}/payment/fail`,
+    noClientOriginPayment.body.successUrl === `${baseUrl}/payment/success?provider=stripe&session_id={CHECKOUT_SESSION_ID}` &&
+      noClientOriginPayment.body.failUrl.startsWith(`${baseUrl}/payment/fail?provider=stripe`),
     'Payment callback URLs must come from configured APP_PUBLIC_ORIGIN',
   );
 
@@ -621,19 +640,18 @@ try {
     method: 'POST',
     headers: auth,
     body: JSON.stringify({
-      planId: 'krw-1000-toss',
+      planId: 'krw-1000-stripe',
       idempotencyKey: randomUUID(),
       origin: baseUrl,
     }),
   });
   assert(paidPayment.response.ok, 'Paid payment creation failed');
+  stripeMock.completeSession(paidPayment.body.sessionId);
 
   const confirmPayment = await jsonRequest(baseUrl, '/api/payments/confirm', {
     method: 'POST',
     body: JSON.stringify({
-      paymentKey: `mock_${paidPayment.body.orderId}`,
-      orderId: paidPayment.body.orderId,
-      amount: paidPayment.body.amount,
+      sessionId: paidPayment.body.sessionId,
     }),
   });
   assert(confirmPayment.response.ok, 'Payment confirmation failed');
@@ -643,9 +661,7 @@ try {
   const duplicateConfirmPayment = await jsonRequest(baseUrl, '/api/payments/confirm', {
     method: 'POST',
     body: JSON.stringify({
-      paymentKey: `mock_${paidPayment.body.orderId}`,
-      orderId: paidPayment.body.orderId,
-      amount: paidPayment.body.amount,
+      sessionId: paidPayment.body.sessionId,
     }),
   });
   assert(duplicateConfirmPayment.response.ok, 'Duplicate payment confirmation failed');
@@ -674,88 +690,71 @@ try {
     'Confirmed payment should appear in wallet transaction history',
   );
 
-  const cancellationWebhookPayload = {
-    eventType: 'PAYMENT_STATUS_CHANGED',
+  const webhookPayment = await jsonRequest(baseUrl, '/api/payments/create', {
+    method: 'POST',
+    headers: auth,
+    body: JSON.stringify({
+      planId: 'krw-1000-stripe',
+      idempotencyKey: randomUUID(),
+      origin: baseUrl,
+    }),
+  });
+  assert(webhookPayment.response.ok, 'Webhook payment creation failed');
+  stripeMock.completeSession(webhookPayment.body.sessionId);
+
+  const completedWebhookPayload = {
+    id: `evt_${randomUUID().replaceAll('-', '')}`,
+    type: 'checkout.session.completed',
     data: {
-      paymentKey: `mock_${paidPayment.body.orderId}`,
-      orderId: paidPayment.body.orderId,
+      object: {
+        id: webhookPayment.body.sessionId,
+        object: 'checkout.session',
+        metadata: {
+          order_id: webhookPayment.body.orderId,
+        },
+      },
     },
   };
 
-  const unsignedCancellationWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
+  const unsignedCompletedWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
     method: 'POST',
-    body: JSON.stringify(cancellationWebhookPayload),
+    body: JSON.stringify(completedWebhookPayload),
   });
   assert(
-    unsignedCancellationWebhook.response.status === 401,
-    'Webhook must reject missing Toss signature when webhook secret is configured',
+    unsignedCompletedWebhook.response.status === 401,
+    'Webhook must reject missing Stripe signature when webhook secret is configured',
   );
 
-  const invalidSignatureCancellationWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
+  const invalidSignatureCompletedWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
     method: 'POST',
     headers: {
-      'x-toss-timestamp': new Date().toISOString(),
-      'x-toss-signature': 'invalid-signature',
+      'Stripe-Signature': `t=${Math.floor(Date.now() / 1000)},v1=invalid-signature`,
     },
-    body: JSON.stringify(cancellationWebhookPayload),
+    body: JSON.stringify(completedWebhookPayload),
   });
   assert(
-    invalidSignatureCancellationWebhook.response.status === 401,
-    'Webhook must reject invalid Toss signature',
+    invalidSignatureCompletedWebhook.response.status === 401,
+    'Webhook must reject invalid Stripe signature',
   );
 
-  tossMock.cancelPayment(`mock_${paidPayment.body.orderId}`, paidPayment.body.amount);
-  const cancellationWebhook = await signedWebhookRequest(baseUrl, cancellationWebhookPayload);
-  assert(cancellationWebhook.response.ok, 'Paid payment cancellation webhook failed');
-  assert(cancellationWebhook.body.status === 'refunded', 'Full cancellation should mark payment refunded');
-  assert(cancellationWebhook.body.refundRecorded === true, 'Cancellation webhook should record a refund');
-  assert(cancellationWebhook.body.walletAdjusted === true, 'Cancellation webhook should adjust wallet balance');
+  const completedWebhook = await signedWebhookRequest(baseUrl, completedWebhookPayload);
+  assert(completedWebhook.response.ok, 'Stripe completed payment webhook failed');
+  assert(completedWebhook.body.status === 'paid', 'Completed webhook should mark payment paid');
 
-  const repeatedCancellationWebhook = await signedWebhookRequest(baseUrl, cancellationWebhookPayload);
-  assert(repeatedCancellationWebhook.response.ok, 'Repeated cancellation webhook failed');
+  const repeatedCompletedWebhook = await signedWebhookRequest(baseUrl, completedWebhookPayload);
+  assert(repeatedCompletedWebhook.response.ok, 'Repeated completed webhook failed');
   assert(
-    repeatedCancellationWebhook.body.refundRecorded === false,
-    'Repeated cancellation webhook should not duplicate refund transactions',
+    repeatedCompletedWebhook.body.status === 'already_processed',
+    'Repeated completed webhook should not duplicate the top-up',
   );
 
-  const walletAfterRefund = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
+  const walletAfterWebhookPayment = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
     headers: auth,
   });
-  assert(walletAfterRefund.response.ok, 'Wallet request after refund failed');
-  assert(walletAfterRefund.body.wallet.balance === 100, 'Refund should subtract the top-up from wallet balance');
+  assert(walletAfterWebhookPayment.response.ok, 'Wallet request after completed webhook failed');
   assert(
-    walletAfterRefund.body.transactions.some(
-      (transaction) =>
-        transaction.type === 'refund' &&
-        transaction.status === 'completed' &&
-        transaction.amount === -paidPayment.body.amount &&
-        transaction.label === 'Payment refund',
-    ),
-    'Refund should appear in wallet transaction history',
-  );
-
-  const confirmRefundedPayment = await jsonRequest(baseUrl, '/api/payments/confirm', {
-    method: 'POST',
-    body: JSON.stringify({
-      paymentKey: `mock_${paidPayment.body.orderId}`,
-      orderId: paidPayment.body.orderId,
-      amount: paidPayment.body.amount,
-    }),
-  });
-  assert(confirmRefundedPayment.response.ok, 'Confirming a refunded payment should be idempotent');
-  assert(
-    confirmRefundedPayment.body.status === 'refunded' &&
-      confirmRefundedPayment.body.alreadyProcessed === true,
-    'Refunded payment confirmation should not move the payment back to paid',
-  );
-
-  const walletAfterRefundedConfirm = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
-    headers: auth,
-  });
-  assert(walletAfterRefundedConfirm.response.ok, 'Wallet request after refunded confirm failed');
-  assert(
-    walletAfterRefundedConfirm.body.wallet.balance === 100,
-    'Refunded payment confirmation should not increase wallet balance',
+    walletAfterWebhookPayment.body.wallet.balance === 2100,
+    'Completed webhook should increase wallet balance once',
   );
 
   const paymentFail = await jsonRequest(baseUrl, '/api/payments/fail', {
@@ -789,7 +788,7 @@ try {
   });
   assert(walletAfterFailedPayment.response.ok, 'Wallet request after failed payment failed');
   assert(
-    walletAfterFailedPayment.body.wallet.balance === 100,
+    walletAfterFailedPayment.body.wallet.balance === 2100,
     'Cancelled payment should not increase wallet balance',
   );
   assert(
@@ -822,5 +821,5 @@ try {
   throw error;
 } finally {
   wrangler.kill('SIGTERM');
-  await tossMock.close();
+  await stripeMock.close();
 }

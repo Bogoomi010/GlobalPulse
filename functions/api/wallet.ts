@@ -41,8 +41,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
     `
       SELECT id, country_code, currency_code, amount, display_label, provider_name, provider_price_id
       FROM payment_plans
-      WHERE is_active = 1 AND (country_code = ? OR country_code != 'KR')
-      ORDER BY country_code = ? DESC, amount ASC
+      WHERE is_active = 1 AND (country_code = ? OR country_code = 'WW')
+      ORDER BY country_code = ? DESC, country_code = 'WW' DESC, amount ASC
     `,
   )
     .bind(countryCode, countryCode)

@@ -19,6 +19,19 @@ type TossWebhookPayload = {
   currency?: string;
 };
 
+type StripeWebhookPayload = {
+  type?: string;
+  data?: {
+    object?: {
+      id?: string;
+      object?: string;
+      metadata?: {
+        order_id?: string;
+      };
+    };
+  };
+};
+
 type PaymentRow = {
   id: string;
   user_id: string;
@@ -33,30 +46,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   const provider = configuredPaymentProvider(env);
   if (!provider) return badRequest('Payment provider is not supported', 400);
   if (!provider.isReady(env)) return badRequest('Payment provider is not configured', 503);
-  if (!env.TOSS_WEBHOOK_SECRET) {
-    return badRequest('TOSS_WEBHOOK_SECRET must be configured before processing payment webhooks', 503);
-  }
 
   const rawBody = await request.text();
-  const signatureHeader =
-    request.headers.get('tosspayments-webhook-signature') || request.headers.get('x-toss-signature');
-  if (!signatureHeader) return badRequest('Missing webhook signature', 401);
   const signatureOk = await provider.verifyWebhookSignature(env, request, rawBody);
   if (!signatureOk) return badRequest('Invalid webhook signature', 401);
 
-  let payload: TossWebhookPayload;
+  let payload: TossWebhookPayload | StripeWebhookPayload;
   try {
-    payload = JSON.parse(rawBody) as TossWebhookPayload;
+    payload = JSON.parse(rawBody) as TossWebhookPayload | StripeWebhookPayload;
   } catch {
     return badRequest('Invalid webhook payload');
   }
 
-  const paymentKey = payload.data?.paymentKey || payload.paymentKey;
-  const orderId = payload.data?.orderId || payload.orderId;
+  const { paymentKey, orderId } = extractWebhookPaymentReference(provider.name, payload);
   if (!paymentKey && !orderId) return badRequest('paymentKey or orderId is required');
 
   const providerPayment = await provider.retrievePayment(env, { paymentKey, orderId });
-  if (!providerPayment) return badRequest('Unable to verify payment with Toss Payments', 502);
+  if (!providerPayment) return badRequest('Unable to verify payment with provider', 502);
 
   const payment = await env.DB.prepare(
     `
@@ -185,6 +191,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
 
   return json({ status: 'paid', paymentId: payment.id });
 };
+
+function extractWebhookPaymentReference(
+  providerName: string,
+  payload: TossWebhookPayload | StripeWebhookPayload,
+): { paymentKey?: string; orderId?: string } {
+  if (providerName === 'stripe') {
+    const stripePayload = payload as StripeWebhookPayload;
+    return {
+      paymentKey: stripePayload.data?.object?.id,
+      orderId: stripePayload.data?.object?.metadata?.order_id,
+    };
+  }
+
+  const tossPayload = payload as TossWebhookPayload;
+  return {
+    paymentKey: tossPayload.data?.paymentKey || tossPayload.paymentKey,
+    orderId: tossPayload.data?.orderId || tossPayload.orderId,
+  };
+}
 
 async function handlePaidPaymentCancellation(
   db: D1Database,

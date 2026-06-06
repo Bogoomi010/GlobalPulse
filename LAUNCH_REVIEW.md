@@ -6,7 +6,7 @@ Complete this review before enabling real payments or telling users that GlobalP
 
 - Legal review for paid comment terms, refund wording, user notices, and jurisdiction-specific obligations.
 - Tax/accounting review for KRW top-ups, wallet balance handling, refunds, and transaction records.
-- Payment provider review for Toss Payments terms, webhook configuration, dispute handling, and callback URLs.
+- Payment provider review for Stripe terms, webhook configuration, dispute handling, and callback URLs.
 - Privacy review for email login, anonymous reaction tokens, moderation reports, transaction history, and retention.
 - Minor payment review for age restrictions, guardian consent requirements, and purchase limits.
 - Moderation review for paid comment rules, report response workflow, hidden content handling, and escalation.

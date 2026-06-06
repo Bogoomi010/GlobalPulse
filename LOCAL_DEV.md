@@ -18,10 +18,10 @@ yarn pages:dev
 
 Open `http://127.0.0.1:8788`.
 
-`pages:dev` uses local placeholder Toss keys, `TOSS_WEBHOOK_SECRET=local-dev-webhook-secret`, `APP_PUBLIC_ORIGIN=http://127.0.0.1:8788`, and `MODERATION_ADMIN_TOKEN=local-dev-moderation-token`. Replace the bindings with real Toss test keys before manually testing the payment window.
+`pages:dev` uses local placeholder Stripe secrets, `PAYMENT_PROVIDER=stripe`, `APP_PUBLIC_ORIGIN=http://127.0.0.1:8788`, and `MODERATION_ADMIN_TOKEN=local-dev-moderation-token`. Replace the bindings with real Stripe test keys before manually testing the hosted checkout redirect.
 Open the `Ops` navigation item and enter `local-dev-moderation-token` to inspect the local moderation queue after reporting a paid comment.
 
-Local Pages dev also sets `ALLOW_DEMO_LOGIN=true` so `/api/auth/login` can issue a test session without sending email. The API smoke test uses `AUTH_PROVIDER=resend` plus `AUTH_EMAIL_DELIVERY=log` to verify the OTP endpoints without sending real email. It also points `TOSS_API_BASE_URL` at a local Toss mock and configures a local `TOSS_WEBHOOK_SECRET` so payment confirm, signed cancellation webhook handling, unsigned webhook rejection, and fixed callback origin behavior can be tested without live keys. Production must use Resend delivery, the official Toss API, and a non-placeholder webhook secret instead.
+Local Pages dev also sets `ALLOW_DEMO_LOGIN=true` so `/api/auth/login` can issue a test session without sending email. The API smoke test uses `AUTH_PROVIDER=resend` plus `AUTH_EMAIL_DELIVERY=log` to verify the OTP endpoints without sending real email. It also points `STRIPE_API_BASE_URL` at a local Stripe mock and configures a local `STRIPE_WEBHOOK_SECRET` so Checkout Session creation, server-side confirmation, signed webhook handling, unsigned webhook rejection, and fixed callback origin behavior can be tested without live keys. Production must use Resend delivery, the official Stripe API, and a non-placeholder webhook signing secret instead.
 
 ## API Smoke Test
 
@@ -46,15 +46,14 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Moderation reports require an admin token and can hide or restore a reported comment
 - The frontend ops screen accepts an operator-provided moderation token for queue review
 - The author can delete their own paid comment
-- Payment creation writes a pending Toss payment
+- Payment creation writes a pending Stripe Checkout payment
 - Duplicate payment creation requests return the original pending payment payload
 - Payment creation uses the configured public origin for success/fail callback URLs
 - Payment creation works without a client origin only because `APP_PUBLIC_ORIGIN` is configured
 - Payment confirmation through the provider adapter increases wallet balance once
 - Payment failure/cancellation records a failed top-up transaction without increasing balance
-- Unsigned or incorrectly signed Toss webhooks are rejected when a webhook secret is configured
-- Paid payment cancellation webhook records a refund and does not duplicate repeated webhook handling
-- Refunded payments cannot be confirmed back into paid wallet credit
+- Unsigned or incorrectly signed Stripe webhooks are rejected when a webhook secret is configured
+- Stripe completed-payment webhooks increase wallet balance once and do not duplicate repeated webhook handling
 
 ## Production Readiness Gate
 
@@ -62,7 +61,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 yarn check:deploy
 ```
 
-This command is expected to fail in local development until production D1, Toss live payment secrets, Resend email settings, `APP_PUBLIC_ORIGIN`, and the moderation admin token are configured. It blocks `yarn deploy` when real payments or operational safeguards cannot work safely.
+This command is expected to fail in local development until production D1, Stripe live payment secrets, Resend email settings, `APP_PUBLIC_ORIGIN`, and the moderation admin token are configured. It blocks `yarn deploy` when real payments or operational safeguards cannot work safely.
 
 `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` is also required for production readiness. Use it only after completing `LAUNCH_REVIEW.md`; the value is an operator acknowledgement, not a legal substitute.
 
@@ -84,4 +83,4 @@ PRODUCTION_VERIFY_SESSION_TOKEN=production-session-token APP_PUBLIC_ORIGIN=https
 ```
 
 The verifier checks the public app shell, payment return routes, seeded issue API count, protected API rejection, and moderation token protection. The email variant intentionally sends a production Resend OTP to the provided address and verifies that no local `devCode` leaks in the response.
-The session-token variant creates a pending payment checkout payload for `PRODUCTION_VERIFY_PLAN_ID` or `krw-1000-toss` and verifies that the returned success/fail URLs use the configured production origin. It does not approve or charge a payment.
+The session-token variant creates a pending payment checkout payload for `PRODUCTION_VERIFY_PLAN_ID` or `krw-1000-stripe` and verifies that the returned success/fail URLs use the configured production origin. It does not approve or charge a payment.

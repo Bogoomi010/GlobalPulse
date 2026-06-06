@@ -6,11 +6,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const wranglerPath = path.join(root, 'wrangler.toml');
 const wrangler = fs.readFileSync(wranglerPath, 'utf8');
 
-const requiredEnv = [
-  'VITE_TOSS_CLIENT_KEY',
-  'TOSS_CLIENT_KEY',
-  'TOSS_SECRET_KEY',
-  'TOSS_WEBHOOK_SECRET',
+const commonRequiredEnv = [
   'SESSION_TOKEN_SECRET',
   'PAYMENT_PROVIDER',
   'AUTH_PROVIDER',
@@ -38,15 +34,18 @@ if (!databaseId || databaseId === 'REPLACE_WITH_PRODUCTION_D1_DATABASE_ID') {
   warnings.push('wrangler.toml database_id does not look like a UUID. Verify it before deployment.');
 }
 
-for (const key of requiredEnv) {
+for (const key of commonRequiredEnv) {
   if (!process.env[key]) failures.push(`${key} must be set in the deployment environment.`);
 }
 
 const viteClientKey = process.env.VITE_TOSS_CLIENT_KEY || '';
 const serverClientKey = process.env.TOSS_CLIENT_KEY || '';
-const secretKey = process.env.TOSS_SECRET_KEY || '';
-const webhookSecret = process.env.TOSS_WEBHOOK_SECRET || '';
+const tossSecretKey = process.env.TOSS_SECRET_KEY || '';
+const tossWebhookSecret = process.env.TOSS_WEBHOOK_SECRET || '';
 const tossApiBaseUrl = process.env.TOSS_API_BASE_URL || '';
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+const stripeApiBaseUrl = process.env.STRIPE_API_BASE_URL || '';
 const sessionSecret = process.env.SESSION_TOKEN_SECRET || '';
 const provider = process.env.PAYMENT_PROVIDER || '';
 const authProvider = process.env.AUTH_PROVIDER || '';
@@ -58,28 +57,43 @@ const moderationAdminToken = process.env.MODERATION_ADMIN_TOKEN || '';
 const appPublicOrigin = process.env.APP_PUBLIC_ORIGIN || '';
 const launchReviewAck = process.env.LAUNCH_REVIEW_ACK || '';
 
-if (viteClientKey && !/^live_(ck|gck)_/.test(viteClientKey)) {
-  failures.push('VITE_TOSS_CLIENT_KEY must be a Toss live client key for production deployment.');
-}
-
-if (serverClientKey && !/^live_(ck|gck)_/.test(serverClientKey)) {
-  failures.push('TOSS_CLIENT_KEY must be a Toss live client key for production deployment.');
-}
-
-if (viteClientKey && serverClientKey && viteClientKey !== serverClientKey) {
-  warnings.push('VITE_TOSS_CLIENT_KEY and TOSS_CLIENT_KEY differ. Confirm this is intentional.');
-}
-
-if (secretKey && !/^live_(sk|gsk)_/.test(secretKey)) {
-  failures.push('TOSS_SECRET_KEY must be a Toss live secret key for production deployment.');
-}
-
-if (tossApiBaseUrl && tossApiBaseUrl.replace(/\/$/, '') !== 'https://api.tosspayments.com') {
-  failures.push('TOSS_API_BASE_URL must not override the official Toss Payments API in production.');
-}
-
-if (webhookSecret && webhookSecret.length < 24) {
-  failures.push('TOSS_WEBHOOK_SECRET must be at least 24 characters.');
+if (provider === 'stripe') {
+  if (!stripeSecretKey) failures.push('STRIPE_SECRET_KEY must be set for Stripe payments.');
+  if (!stripeWebhookSecret) failures.push('STRIPE_WEBHOOK_SECRET must be set for Stripe payment webhooks.');
+  if (stripeSecretKey && !/^sk_live_/.test(stripeSecretKey)) {
+    failures.push('STRIPE_SECRET_KEY must be a Stripe live secret key for production deployment.');
+  }
+  if (stripeWebhookSecret && !/^whsec_[A-Za-z0-9_]+$/.test(stripeWebhookSecret)) {
+    failures.push('STRIPE_WEBHOOK_SECRET must be a Stripe webhook signing secret.');
+  }
+  if (stripeApiBaseUrl && stripeApiBaseUrl.replace(/\/$/, '') !== 'https://api.stripe.com') {
+    failures.push('STRIPE_API_BASE_URL must not override the official Stripe API in production.');
+  }
+} else if (provider === 'toss') {
+  if (!viteClientKey) failures.push('VITE_TOSS_CLIENT_KEY must be set for Toss payments.');
+  if (!serverClientKey) failures.push('TOSS_CLIENT_KEY must be set for Toss payments.');
+  if (!tossSecretKey) failures.push('TOSS_SECRET_KEY must be set for Toss payments.');
+  if (!tossWebhookSecret) failures.push('TOSS_WEBHOOK_SECRET must be set for Toss payment webhooks.');
+  if (viteClientKey && !/^live_(ck|gck)_/.test(viteClientKey)) {
+    failures.push('VITE_TOSS_CLIENT_KEY must be a Toss live client key for production deployment.');
+  }
+  if (serverClientKey && !/^live_(ck|gck)_/.test(serverClientKey)) {
+    failures.push('TOSS_CLIENT_KEY must be a Toss live client key for production deployment.');
+  }
+  if (viteClientKey && serverClientKey && viteClientKey !== serverClientKey) {
+    warnings.push('VITE_TOSS_CLIENT_KEY and TOSS_CLIENT_KEY differ. Confirm this is intentional.');
+  }
+  if (tossSecretKey && !/^live_(sk|gsk)_/.test(tossSecretKey)) {
+    failures.push('TOSS_SECRET_KEY must be a Toss live secret key for production deployment.');
+  }
+  if (tossApiBaseUrl && tossApiBaseUrl.replace(/\/$/, '') !== 'https://api.tosspayments.com') {
+    failures.push('TOSS_API_BASE_URL must not override the official Toss Payments API in production.');
+  }
+  if (tossWebhookSecret && tossWebhookSecret.length < 24) {
+    failures.push('TOSS_WEBHOOK_SECRET must be at least 24 characters.');
+  }
+} else if (provider) {
+  failures.push('PAYMENT_PROVIDER must be set to "stripe" or "toss".');
 }
 
 if (sessionSecret && sessionSecret.length < 32) {
@@ -119,10 +133,6 @@ if (launchReviewAck && launchReviewAck !== 'GLOBALPULSE_LAUNCH_REVIEW_COMPLETE')
   failures.push(
     'LAUNCH_REVIEW_ACK must be set to GLOBALPULSE_LAUNCH_REVIEW_COMPLETE after operator launch review.',
   );
-}
-
-if (provider && provider !== 'toss') {
-  failures.push('PAYMENT_PROVIDER must be set to "toss" for the current production payment adapter.');
 }
 
 if (authProvider && authProvider !== 'resend') {

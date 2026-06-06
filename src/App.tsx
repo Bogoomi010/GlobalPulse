@@ -115,9 +115,11 @@ type ModerationReport = {
 type PaymentReturn =
   | {
       kind: 'success';
+      provider: string;
       paymentKey: string;
       orderId: string;
       amount: number;
+      sessionId?: string;
       status: 'confirming' | 'paid' | 'failed';
       message?: string;
     }
@@ -176,13 +178,11 @@ const sortTabs: SortKey[] = [
 ];
 
 const paymentPlans: PaymentPlan[] = [
-  { id: 'krw-1000-toss', country: 'KR', currency: 'KRW', amount: 1000, label: '1,000원', provider: 'toss' },
-  { id: 'krw-2000-toss', country: 'KR', currency: 'KRW', amount: 2000, label: '2,000원', provider: 'toss' },
-  { id: 'krw-3000-toss', country: 'KR', currency: 'KRW', amount: 3000, label: '3,000원', provider: 'toss' },
-  { id: 'krw-5000-toss', country: 'KR', currency: 'KRW', amount: 5000, label: '5,000원', provider: 'toss' },
-  { id: 'krw-10000-toss', country: 'KR', currency: 'KRW', amount: 10000, label: '10,000원', provider: 'toss' },
-  { id: 'usd-5-stripe', country: 'US', currency: 'USD', amount: 5, label: '$5', provider: 'stripe' },
-  { id: 'jpy-500-stripe', country: 'JP', currency: 'JPY', amount: 500, label: '¥500', provider: 'stripe' },
+  { id: 'krw-1000-stripe', country: 'WW', currency: 'KRW', amount: 1000, label: '1,000원', provider: 'stripe' },
+  { id: 'krw-2000-stripe', country: 'WW', currency: 'KRW', amount: 2000, label: '2,000원', provider: 'stripe' },
+  { id: 'krw-3000-stripe', country: 'WW', currency: 'KRW', amount: 3000, label: '3,000원', provider: 'stripe' },
+  { id: 'krw-5000-stripe', country: 'WW', currency: 'KRW', amount: 5000, label: '5,000원', provider: 'stripe' },
+  { id: 'krw-10000-stripe', country: 'WW', currency: 'KRW', amount: 10000, label: '10,000원', provider: 'stripe' },
 ];
 
 const seedIssues: Issue[] = [
@@ -620,12 +620,38 @@ const moderationHeaders = (token: string): HeadersInit =>
 const parsePaymentReturn = (): PaymentReturn | null => {
   const url = new URL(window.location.href);
   if (url.pathname === '/payment/success') {
+    const provider = url.searchParams.get('provider') ?? 'toss';
+    if (provider === 'stripe') {
+      const sessionId = url.searchParams.get('session_id') ?? '';
+      if (!sessionId) {
+        return {
+          kind: 'success',
+          provider,
+          paymentKey: '',
+          orderId: '',
+          amount: 0,
+          status: 'failed',
+          message: 'Stripe Checkout 세션 ID가 없습니다.',
+        };
+      }
+      return {
+        kind: 'success',
+        provider,
+        paymentKey: sessionId,
+        sessionId,
+        orderId: sessionId,
+        amount: 0,
+        status: 'confirming',
+      };
+    }
+
     const paymentKey = url.searchParams.get('paymentKey') ?? '';
     const orderId = url.searchParams.get('orderId') ?? '';
     const amount = Number(url.searchParams.get('amount'));
     if (!paymentKey || !orderId || !Number.isFinite(amount)) {
       return {
         kind: 'success',
+        provider,
         paymentKey,
         orderId,
         amount: 0,
@@ -633,7 +659,7 @@ const parsePaymentReturn = (): PaymentReturn | null => {
         message: '결제 성공 URL의 필수 파라미터가 없습니다.',
       };
     }
-    return { kind: 'success', paymentKey, orderId, amount, status: 'confirming' };
+    return { kind: 'success', provider, paymentKey, orderId, amount, status: 'confirming' };
   }
 
   if (url.pathname === '/payment/fail') {
@@ -828,11 +854,15 @@ export default function App() {
         alreadyProcessed?: boolean;
       }>('/api/payments/confirm', {
         method: 'POST',
-        body: JSON.stringify({
-          paymentKey: paymentReturn.paymentKey,
-          orderId: paymentReturn.orderId,
-          amount: paymentReturn.amount,
-        }),
+        body: JSON.stringify(
+          paymentReturn.provider === 'stripe'
+            ? { sessionId: paymentReturn.sessionId || paymentReturn.paymentKey }
+            : {
+                paymentKey: paymentReturn.paymentKey,
+                orderId: paymentReturn.orderId,
+                amount: paymentReturn.amount,
+              },
+        ),
       }).then((data) => {
         if (data?.status === 'paid') {
           setApiOnline(true);
@@ -848,7 +878,7 @@ export default function App() {
         setPaymentReturn({
           ...paymentReturn,
           status: 'failed',
-          message: '결제 승인이 실패했습니다. 서버 금액 검증 또는 Toss 승인 결과를 확인하세요.',
+          message: '결제 승인이 실패했습니다. 서버 금액 검증 또는 결제사 승인 결과를 확인하세요.',
         });
       });
     }
@@ -1089,13 +1119,16 @@ export default function App() {
     const userId = user.id;
     const idempotencyKey = crypto.randomUUID();
     void requestJson<{
+      provider: string;
       paymentId: string;
       orderId: string;
       orderName: string;
       amount: number;
       currency: string;
       status: 'pending';
-      clientKey: string;
+      clientKey?: string;
+      sessionId?: string;
+      checkoutUrl?: string;
       successUrl: string;
       failUrl: string;
     }>('/api/payments/create', {
@@ -1118,10 +1151,30 @@ export default function App() {
         type: 'topup',
         amount: data.amount,
         status: 'pending',
-        label: `${plan.label} pending Toss payment · ${data.orderId}`,
+        label: `${plan.label} pending ${data.provider === 'stripe' ? 'Stripe Checkout' : 'Toss payment'} · ${data.orderId}`,
         createdAt: new Date().toISOString(),
       };
       persistTransactions([tx, ...transactions]);
+
+      if (data.checkoutUrl) {
+        window.location.assign(data.checkoutUrl);
+        return;
+      }
+
+      if (!data.clientKey) {
+        setPaymentStatus('failed');
+        const failedTx: WalletTransaction = {
+          id: crypto.randomUUID(),
+          type: 'failed_payment',
+          amount: data.amount,
+          status: 'failed',
+          label: 'Payment provider did not return a checkout URL or client key',
+          createdAt: new Date().toISOString(),
+        };
+        persistTransactions([failedTx, tx, ...transactions]);
+        return;
+      }
+
       return loadTossPayments(data.clientKey)
         .then((tossPayments) => {
           const payment = tossPayments.payment({ customerKey: userId });
@@ -1148,8 +1201,8 @@ export default function App() {
             status: 'failed',
             label:
               error instanceof Error
-                ? `Toss payment window failed: ${error.message}`
-                : 'Toss payment window failed',
+                ? `Payment window failed: ${error.message}`
+                : 'Payment window failed',
             createdAt: new Date().toISOString(),
           };
           persistTransactions([failedTx, tx, ...transactions]);
@@ -1863,12 +1916,12 @@ function WalletView({
         ) : null}
         {paymentStatus === 'blocked' ? (
           <p className="mt-5 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-3 text-sm leading-6 text-amber-100">
-            결제 설정이 아직 완료되지 않았습니다. `VITE_TOSS_CLIENT_KEY`, `TOSS_CLIENT_KEY`, 서버 secret, webhook 설정이 필요합니다.
+            결제 설정이 아직 완료되지 않았습니다. 서버 결제 secret, callback origin, webhook 설정을 확인해야 합니다.
           </p>
         ) : null}
         {paymentStatus === 'pending' ? (
           <p className="mt-5 rounded-2xl border border-cyan-300/30 bg-cyan-300/10 p-3 text-sm leading-6 text-cyan-100">
-            결제 요청이 생성되었습니다. 실제 잔액 증가는 Toss 승인 후 `/api/payments/confirm` 또는 webhook에서 처리됩니다.
+            결제 요청이 생성되었습니다. 실제 잔액 증가는 결제사 승인 후 `/api/payments/confirm` 또는 webhook에서 처리됩니다.
           </p>
         ) : null}
       </aside>
@@ -1884,7 +1937,9 @@ function WalletView({
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {plans.map((plan) => (
               <button className="plan-card" key={plan.id} onClick={() => onPaymentAttempt(plan)}>
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{plan.country} · {plan.provider}</span>
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                  {plan.country === 'WW' ? 'GLOBAL' : plan.country} · {plan.provider}
+                </span>
                 <span className="mt-2 block text-3xl font-black">{plan.label}</span>
                 <span className="mt-3 inline-flex items-center gap-2 text-sm text-cyan-200">
                   <CircleDollarSign className="h-4 w-4" />
@@ -1965,7 +2020,7 @@ function PaymentResultView({
       <h1 className="text-3xl font-black">{title}</h1>
       <p className="mt-3 text-sm leading-6 text-slate-300">
         {isSuccess
-          ? 'Toss 인증 결과를 서버에서 금액 검증 후 승인합니다. 지갑 잔액은 서버 승인이 완료된 뒤에만 증가합니다.'
+          ? '결제사 인증 결과를 서버에서 금액 검증 후 승인합니다. 지갑 잔액은 서버 승인이 완료된 뒤에만 증가합니다.'
           : '결제 실패 또는 취소는 잔액을 증가시키지 않으며, 결제 상태만 서버에 기록합니다.'}
       </p>
       <div className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-[#070A12] p-4 text-sm">
@@ -1977,10 +2032,10 @@ function PaymentResultView({
           <>
             <div className="flex justify-between gap-4">
               <span className="text-slate-500">Amount</span>
-              <span className="font-bold">{formatWon(result.amount)}</span>
+              <span className="font-bold">{result.amount > 0 ? formatWon(result.amount) : '서버 검증'}</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-slate-500">Payment key</span>
+              <span className="text-slate-500">{result.provider === 'stripe' ? 'Session ID' : 'Payment key'}</span>
               <span className="break-all text-right font-bold">{result.paymentKey || '-'}</span>
             </div>
           </>

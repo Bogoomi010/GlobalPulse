@@ -13,6 +13,7 @@ type ConfirmPaymentBody = {
   paymentKey?: string;
   orderId?: string;
   amount?: number;
+  sessionId?: string;
 };
 
 type PaymentRow = {
@@ -28,19 +29,22 @@ type PaymentRow = {
 export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   try {
     const body = await readJson<ConfirmPaymentBody>(request);
-    const paymentKey = requireString(body.paymentKey, 'paymentKey');
-    const orderId = requireString(body.orderId, 'orderId');
-    const amount = Number(body.amount);
-    if (!Number.isInteger(amount) || amount <= 0) return badRequest('amount must be a positive integer');
+    const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
+    const paymentKey = sessionId || requireString(body.paymentKey, 'paymentKey');
+    const orderId = sessionId ? '' : requireString(body.orderId, 'orderId');
+    const requestedAmount = Number(body.amount);
+    if (!sessionId && (!Number.isInteger(requestedAmount) || requestedAmount <= 0)) {
+      return badRequest('amount must be a positive integer');
+    }
 
     const payment = await env.DB.prepare(
       `
         SELECT id, user_id, provider_name, provider_order_id, amount, currency_code, status
         FROM payments
-        WHERE provider_order_id = ?
+        WHERE ${sessionId ? 'provider_payment_id = ?' : 'provider_order_id = ?'}
       `,
     )
-      .bind(orderId)
+      .bind(sessionId || orderId)
       .first<PaymentRow>();
 
     if (!payment) return badRequest('Payment not found', 404);
@@ -51,16 +55,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     if (!provider) return badRequest('Payment provider is not supported', 400);
     if (!provider.isReady(env)) return badRequest('Payment provider is not configured', 503);
 
-    if (Number(payment.amount) !== amount) {
+    const amount = Number(payment.amount);
+    if (!sessionId && Number(payment.amount) !== requestedAmount) {
       await markPaymentFailed(env.DB, payment, paymentKey);
       return badRequest('Payment amount does not match the server-side payment record', 400);
     }
 
     const providerResult = await provider.confirmPayment(env, {
       paymentKey,
-      orderId,
+      orderId: payment.provider_order_id,
       amount,
       idempotencyKey: payment.id,
+      sessionId: sessionId || undefined,
     });
 
     if (!providerResult.ok) {

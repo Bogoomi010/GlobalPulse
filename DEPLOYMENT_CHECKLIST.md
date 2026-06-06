@@ -22,6 +22,7 @@
 - Configure Toss Payments secret key.
 - Configure Toss Payments webhook secret.
 - Configure success, failure, cancel, and webhook callback URLs.
+- Confirm `/payment/success` and `/payment/fail` route to the SPA through `public/_redirects`.
 - Verify provider signatures on webhook requests.
 - Ensure `provider_payment_id` and `idempotency_key` cannot be processed twice.
 
@@ -48,7 +49,9 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 - Duplicate reactions from the same browser are prevented.
 - Login works through the real auth provider.
 - Top-up creates a pending payment through `/api/payments/create`.
+- Browser opens Toss Payments V2 Standard payment window from the selected top-up plan.
 - Toss payment success calls `/api/payments/confirm` with server-side amount verification.
+- Toss payment failure or cancellation calls `/api/payments/fail` and does not increase balance.
 - Approved payment increases wallet balance once.
 - Failed or cancelled payment does not increase balance.
 - Paid comment subtracts 100 KRW and appears in the comment list.

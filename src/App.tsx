@@ -68,7 +68,7 @@ type WalletTransaction = {
   id: string;
   type: 'topup' | 'comment_spend' | 'failed_payment';
   amount: number;
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
   label: string;
   createdAt: string;
 };
@@ -82,6 +82,51 @@ type PaymentPlan = {
   provider: string;
   providerPriceId?: string | null;
 };
+
+type PaymentReturn =
+  | {
+      kind: 'success';
+      paymentKey: string;
+      orderId: string;
+      amount: number;
+      status: 'confirming' | 'paid' | 'failed';
+      message?: string;
+    }
+  | {
+      kind: 'fail';
+      orderId: string;
+      code: string;
+      message: string;
+      status: 'recording' | 'recorded' | 'failed';
+    };
+
+type TossPaymentRequest = {
+  method: 'CARD';
+  amount: {
+    currency: string;
+    value: number;
+  };
+  orderId: string;
+  orderName: string;
+  successUrl: string;
+  failUrl: string;
+  customerEmail?: string;
+  customerName?: string;
+};
+
+type TossPaymentWindow = {
+  requestPayment: (request: TossPaymentRequest) => Promise<void>;
+};
+
+type TossPaymentsClient = {
+  payment: (params: { customerKey: string }) => TossPaymentWindow;
+};
+
+declare global {
+  interface Window {
+    TossPayments?: (clientKey: string) => TossPaymentsClient;
+  }
+}
 
 const categories: Category[] = ['World', 'Tech', 'Business', 'Culture', 'Science', 'Sports', 'Internet'];
 const sortTabs: SortKey[] = [
@@ -418,7 +463,7 @@ const seedIssues: Issue[] = [
 ];
 
 const commentCost = 100;
-const paymentConfigured = Boolean(import.meta.env.VITE_TOSS_CLIENT_KEY);
+const tossSdkUrl = 'https://js.tosspayments.com/v2/standard';
 
 const formatCount = (value: number) => {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
@@ -489,6 +534,64 @@ const requestJson = async <T,>(url: string, init?: RequestInit): Promise<T | nul
   }
 };
 
+const parsePaymentReturn = (): PaymentReturn | null => {
+  const url = new URL(window.location.href);
+  if (url.pathname === '/payment/success') {
+    const paymentKey = url.searchParams.get('paymentKey') ?? '';
+    const orderId = url.searchParams.get('orderId') ?? '';
+    const amount = Number(url.searchParams.get('amount'));
+    if (!paymentKey || !orderId || !Number.isFinite(amount)) {
+      return {
+        kind: 'success',
+        paymentKey,
+        orderId,
+        amount: 0,
+        status: 'failed',
+        message: '결제 성공 URL의 필수 파라미터가 없습니다.',
+      };
+    }
+    return { kind: 'success', paymentKey, orderId, amount, status: 'confirming' };
+  }
+
+  if (url.pathname === '/payment/fail') {
+    return {
+      kind: 'fail',
+      orderId: url.searchParams.get('orderId') ?? '',
+      code: url.searchParams.get('code') ?? 'PAYMENT_FAILED',
+      message: url.searchParams.get('message') ?? '결제 인증이 실패하거나 취소되었습니다.',
+      status: 'recording',
+    };
+  }
+
+  return null;
+};
+
+const loadTossPayments = async (clientKey: string): Promise<TossPaymentsClient> => {
+  if (window.TossPayments) return window.TossPayments(clientKey);
+
+  await new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${tossSdkUrl}"]`);
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Toss Payments SDK load failed')), {
+        once: true,
+      });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = tossSdkUrl;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Toss Payments SDK load failed'));
+    document.head.appendChild(script);
+  });
+
+  const tossFactory = window.TossPayments as ((key: string) => TossPaymentsClient) | undefined;
+  if (!tossFactory) throw new Error('Toss Payments SDK is unavailable');
+  return tossFactory(clientKey);
+};
+
 export default function App() {
   const [issues, setIssues] = useState<Issue[]>(() => readJson('globalpulse:issues', seedIssues));
   const [comments, setComments] = useState<Comment[]>(() => readJson('globalpulse:comments', []));
@@ -510,6 +613,7 @@ export default function App() {
   const [view, setView] = useState<View>('feed');
   const [authOpen, setAuthOpen] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'blocked' | 'pending' | 'success' | 'failed'>('idle');
+  const [paymentReturn, setPaymentReturn] = useState<PaymentReturn | null>(parsePaymentReturn);
 
   const activeIssue = issues.find((issue) => issue.id === activeIssueId) ?? null;
 
@@ -567,6 +671,60 @@ export default function App() {
       cancelled = true;
     };
   }, [activeIssueId]);
+
+  useEffect(() => {
+    if (!paymentReturn) return;
+    if (paymentReturn.kind === 'success' && paymentReturn.status === 'confirming') {
+      const confirmationKey = `globalpulse:payment-confirm:${paymentReturn.orderId}:${paymentReturn.paymentKey}`;
+      if (sessionStorage.getItem(confirmationKey)) return;
+      sessionStorage.setItem(confirmationKey, '1');
+
+      void requestJson<{
+        status: 'paid' | 'failed';
+        wallet?: { balance: number };
+        alreadyProcessed?: boolean;
+      }>('/api/payments/confirm', {
+        method: 'POST',
+        body: JSON.stringify({
+          paymentKey: paymentReturn.paymentKey,
+          orderId: paymentReturn.orderId,
+          amount: paymentReturn.amount,
+        }),
+      }).then((data) => {
+        if (data?.status === 'paid') {
+          setApiOnline(true);
+          setPaymentStatus('success');
+          if (typeof data.wallet?.balance === 'number') {
+            setBalance(data.wallet.balance);
+            writeJson('globalpulse:balance', data.wallet.balance);
+          }
+          setPaymentReturn({ ...paymentReturn, status: 'paid' });
+          return;
+        }
+        setPaymentStatus('failed');
+        setPaymentReturn({
+          ...paymentReturn,
+          status: 'failed',
+          message: '결제 승인이 실패했습니다. 서버 금액 검증 또는 Toss 승인 결과를 확인하세요.',
+        });
+      });
+    }
+
+    if (paymentReturn.kind === 'fail' && paymentReturn.status === 'recording') {
+      void requestJson<{ status: 'failed' | 'cancelled'; updated: boolean }>('/api/payments/fail', {
+        method: 'POST',
+        body: JSON.stringify({
+          orderId: paymentReturn.orderId,
+          code: paymentReturn.code,
+          message: paymentReturn.message,
+        }),
+      }).then((data) => {
+        if (data) setApiOnline(true);
+        setPaymentStatus('failed');
+        setPaymentReturn({ ...paymentReturn, status: data ? 'recorded' : 'failed' });
+      });
+    }
+  }, [paymentReturn]);
 
   const filteredIssues = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -692,25 +850,27 @@ export default function App() {
       setAuthOpen(true);
       return;
     }
-    if (!user.id || !paymentConfigured) {
+    if (!user.id) {
       setPaymentStatus('blocked');
       const tx: WalletTransaction = {
         id: crypto.randomUUID(),
         type: 'failed_payment',
         amount: plan.amount,
         status: 'failed',
-        label: `${plan.label} payment blocked: server login or provider env missing`,
+        label: `${plan.label} payment blocked: server login required`,
         createdAt: new Date().toISOString(),
       };
       persistTransactions([tx, ...transactions]);
-      if (!user.id) setAuthOpen(true);
+      setAuthOpen(true);
       return;
     }
 
+    const userId = user.id;
     const idempotencyKey = crypto.randomUUID();
     void requestJson<{
       paymentId: string;
       orderId: string;
+      orderName: string;
       amount: number;
       currency: string;
       status: 'pending';
@@ -720,7 +880,7 @@ export default function App() {
     }>('/api/payments/create', {
       method: 'POST',
       body: JSON.stringify({
-        userId: user.id,
+        userId,
         planId: plan.id,
         idempotencyKey,
         origin: window.location.origin,
@@ -741,6 +901,38 @@ export default function App() {
         createdAt: new Date().toISOString(),
       };
       persistTransactions([tx, ...transactions]);
+      return loadTossPayments(data.clientKey)
+        .then((tossPayments) => {
+          const payment = tossPayments.payment({ customerKey: userId });
+          return payment.requestPayment({
+            method: 'CARD',
+            amount: {
+              currency: data.currency,
+              value: data.amount,
+            },
+            orderId: data.orderId,
+            orderName: data.orderName,
+            successUrl: data.successUrl,
+            failUrl: data.failUrl,
+            customerEmail: user.email,
+            customerName: user.displayName,
+          });
+        })
+        .catch((error: unknown) => {
+          setPaymentStatus('failed');
+          const failedTx: WalletTransaction = {
+            id: crypto.randomUUID(),
+            type: 'failed_payment',
+            amount: data.amount,
+            status: 'failed',
+            label:
+              error instanceof Error
+                ? `Toss payment window failed: ${error.message}`
+                : 'Toss payment window failed',
+            createdAt: new Date().toISOString(),
+          };
+          persistTransactions([failedTx, tx, ...transactions]);
+        });
     });
   };
 
@@ -856,7 +1048,18 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 pb-20 pt-5">
-        {view === 'feed' ? (
+        {paymentReturn ? (
+          <PaymentResultView
+            result={paymentReturn}
+            onBackToWallet={() => {
+              setPaymentReturn(null);
+              setView('wallet');
+              window.history.replaceState(null, '', '/');
+            }}
+          />
+        ) : null}
+
+        {!paymentReturn && view === 'feed' ? (
           <>
             <section className="mb-5 grid gap-4 lg:grid-cols-[1fr_320px]">
               <div className="rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.22),_transparent_34%),linear-gradient(135deg,_rgba(15,23,42,0.96),_rgba(2,6,23,0.96))] p-5 shadow-2xl shadow-cyan-950/30 sm:p-7">
@@ -940,7 +1143,7 @@ export default function App() {
           </>
         ) : null}
 
-        {view === 'wallet' ? (
+        {!paymentReturn && view === 'wallet' ? (
           <WalletView
             balance={balance}
             onPaymentAttempt={handlePaymentAttempt}
@@ -952,8 +1155,8 @@ export default function App() {
           />
         ) : null}
 
-        {view === 'about' ? <InfoPage type="about" /> : null}
-        {view === 'policy' ? <InfoPage type="policy" /> : null}
+        {!paymentReturn && view === 'about' ? <InfoPage type="about" /> : null}
+        {!paymentReturn && view === 'policy' ? <InfoPage type="policy" /> : null}
       </main>
 
       {activeIssue ? (
@@ -1283,6 +1486,82 @@ function WalletView({
           </div>
         </div>
       </div>
+    </section>
+  );
+}
+
+function PaymentResultView({
+  result,
+  onBackToWallet,
+}: {
+  result: PaymentReturn;
+  onBackToWallet: () => void;
+}) {
+  const isSuccess = result.kind === 'success';
+  const isDone = isSuccess ? result.status === 'paid' : result.status === 'recorded';
+  const isFailed = result.status === 'failed';
+  const title = isSuccess
+    ? result.status === 'confirming'
+      ? '결제 승인 확인 중'
+      : result.status === 'paid'
+        ? '결제 성공'
+        : '결제 승인 실패'
+    : result.status === 'recording'
+      ? '결제 실패 기록 중'
+      : '결제 실패';
+
+  return (
+    <section className="mx-auto max-w-2xl rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+      <div
+        className={`mb-5 grid h-14 w-14 place-items-center rounded-2xl ${
+          isDone ? 'bg-emerald-300 text-slate-950' : isFailed ? 'bg-rose-300 text-slate-950' : 'bg-cyan-300 text-slate-950'
+        }`}
+      >
+        {isDone ? <CheckCircle2 className="h-7 w-7" /> : <CreditCard className="h-7 w-7" />}
+      </div>
+      <h1 className="text-3xl font-black">{title}</h1>
+      <p className="mt-3 text-sm leading-6 text-slate-300">
+        {isSuccess
+          ? 'Toss 인증 결과를 서버에서 금액 검증 후 승인합니다. 지갑 잔액은 서버 승인이 완료된 뒤에만 증가합니다.'
+          : '결제 실패 또는 취소는 잔액을 증가시키지 않으며, 결제 상태만 서버에 기록합니다.'}
+      </p>
+      <div className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-[#070A12] p-4 text-sm">
+        <div className="flex justify-between gap-4">
+          <span className="text-slate-500">Order ID</span>
+          <span className="break-all text-right font-bold">{result.orderId || '-'}</span>
+        </div>
+        {isSuccess ? (
+          <>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-500">Amount</span>
+              <span className="font-bold">{formatWon(result.amount)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-500">Payment key</span>
+              <span className="break-all text-right font-bold">{result.paymentKey || '-'}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-500">Code</span>
+              <span className="break-all text-right font-bold">{result.code}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-500">Message</span>
+              <span className="break-all text-right font-bold">{result.message}</span>
+            </div>
+          </>
+        )}
+      </div>
+      {'message' in result && result.message ? (
+        <p className="mt-4 rounded-2xl border border-rose-300/30 bg-rose-300/10 p-3 text-sm leading-6 text-rose-100">
+          {result.message}
+        </p>
+      ) : null}
+      <button className="primary-button mt-6 w-full" onClick={onBackToWallet}>
+        지갑으로 돌아가기
+      </button>
     </section>
   );
 }

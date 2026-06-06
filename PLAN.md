@@ -42,10 +42,13 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Idempotency key prevents duplicate charge/comment writes.
 
 6. Payments
-   - In progress: Toss create/confirm/webhook endpoints are implemented.
+   - Done: Toss create/confirm/fail/webhook endpoints are implemented.
+   - Done: Browser payment launch uses Toss Payments V2 Standard SDK.
+   - Done: `/payment/success` confirms the payment server-side.
+   - Done: `/payment/fail` records failure or cancellation without increasing wallet balance.
    - Done: Server-side amount verification is required before Toss confirmation.
-   - Done: Payment status transitions and duplicate paid payment checks are implemented.
-   - Remaining: Connect the browser Toss payment SDK/widget and verify with live/test keys.
+   - Done: Payment status transitions and duplicate paid payment checks are implemented before wallet top-up.
+   - Remaining: Verify the full browser payment request with Toss test/live keys and production callback URLs.
 
 7. Deployment
    - Add Cloudflare Pages/Workers or equivalent server runtime.
@@ -74,7 +77,7 @@ Do not claim real payments are available until the payment provider keys, webhoo
 ## Remaining Production Work
 
 - Real verified authentication
-- Browser Toss payment SDK/widget request flow
+- Toss test/live key verification in a deployed environment
 - D1 migration execution in production
 - Production deployment URL verification
 - Legal/tax/refund/minor payment/privacy/moderation review

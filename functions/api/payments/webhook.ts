@@ -110,16 +110,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
 
   if (!wallet) return badRequest('Wallet not found', 404);
 
+  const paidUpdate = await env.DB.prepare(
+    `
+      UPDATE payments
+      SET status = 'paid',
+          provider_payment_id = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND status != 'paid'
+    `,
+  )
+    .bind(providerPayment.paymentKey, payment.id)
+    .run();
+
+  if (paidUpdate.meta.changes === 0) {
+    return json({ status: 'already_processed', paymentId: payment.id });
+  }
+
   await env.DB.batch([
-    env.DB.prepare(
-      `
-        UPDATE payments
-        SET status = 'paid',
-            provider_payment_id = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = ? AND status != 'paid'
-      `,
-    ).bind(providerPayment.paymentKey, payment.id),
     env.DB.prepare(
       `
         UPDATE wallets

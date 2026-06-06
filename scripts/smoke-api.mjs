@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { Buffer } from 'node:buffer';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
@@ -10,6 +10,7 @@ import { URL, fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const persistTo = '.wrangler/smoke-state';
 const wranglerBin = path.join(root, 'node_modules', '.bin', 'wrangler');
+const smokeWebhookSecret = 'smoke-webhook-secret-for-tests';
 
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -40,6 +41,23 @@ const jsonRequest = async (baseUrl, pathname, options = {}) => {
     }
   }
   return { body, response };
+};
+
+const signedWebhookRequest = async (baseUrl, payload) => {
+  const body = JSON.stringify(payload);
+  const timestamp = new Date().toISOString();
+  const signature = createHmac('sha256', smokeWebhookSecret)
+    .update(`${timestamp}.${body}`)
+    .digest('hex');
+
+  return jsonRequest(baseUrl, '/api/payments/webhook', {
+    method: 'POST',
+    headers: {
+      'x-toss-timestamp': timestamp,
+      'x-toss-signature': signature,
+    },
+    body,
+  });
 };
 
 const freePort = async () =>
@@ -174,6 +192,8 @@ const wrangler = spawn(
     'TOSS_CLIENT_KEY=test_ck_smoke',
     '--binding',
     'TOSS_SECRET_KEY=test_sk_smoke',
+    '--binding',
+    `TOSS_WEBHOOK_SECRET=${smokeWebhookSecret}`,
     '--binding',
     `TOSS_API_BASE_URL=${tossMock.baseUrl}`,
     '--log-level',
@@ -552,32 +572,44 @@ try {
     'Confirmed payment should appear in wallet transaction history',
   );
 
-  tossMock.cancelPayment(`mock_${paidPayment.body.orderId}`, paidPayment.body.amount);
-  const cancellationWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
+  const cancellationWebhookPayload = {
+    eventType: 'PAYMENT_STATUS_CHANGED',
+    data: {
+      paymentKey: `mock_${paidPayment.body.orderId}`,
+      orderId: paidPayment.body.orderId,
+    },
+  };
+
+  const unsignedCancellationWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
     method: 'POST',
-    body: JSON.stringify({
-      eventType: 'PAYMENT_STATUS_CHANGED',
-      data: {
-        paymentKey: `mock_${paidPayment.body.orderId}`,
-        orderId: paidPayment.body.orderId,
-      },
-    }),
+    body: JSON.stringify(cancellationWebhookPayload),
   });
+  assert(
+    unsignedCancellationWebhook.response.status === 401,
+    'Webhook must reject missing Toss signature when webhook secret is configured',
+  );
+
+  const invalidSignatureCancellationWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
+    method: 'POST',
+    headers: {
+      'x-toss-timestamp': new Date().toISOString(),
+      'x-toss-signature': 'invalid-signature',
+    },
+    body: JSON.stringify(cancellationWebhookPayload),
+  });
+  assert(
+    invalidSignatureCancellationWebhook.response.status === 401,
+    'Webhook must reject invalid Toss signature',
+  );
+
+  tossMock.cancelPayment(`mock_${paidPayment.body.orderId}`, paidPayment.body.amount);
+  const cancellationWebhook = await signedWebhookRequest(baseUrl, cancellationWebhookPayload);
   assert(cancellationWebhook.response.ok, 'Paid payment cancellation webhook failed');
   assert(cancellationWebhook.body.status === 'refunded', 'Full cancellation should mark payment refunded');
   assert(cancellationWebhook.body.refundRecorded === true, 'Cancellation webhook should record a refund');
   assert(cancellationWebhook.body.walletAdjusted === true, 'Cancellation webhook should adjust wallet balance');
 
-  const repeatedCancellationWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
-    method: 'POST',
-    body: JSON.stringify({
-      eventType: 'PAYMENT_STATUS_CHANGED',
-      data: {
-        paymentKey: `mock_${paidPayment.body.orderId}`,
-        orderId: paidPayment.body.orderId,
-      },
-    }),
-  });
+  const repeatedCancellationWebhook = await signedWebhookRequest(baseUrl, cancellationWebhookPayload);
   assert(repeatedCancellationWebhook.response.ok, 'Repeated cancellation webhook failed');
   assert(
     repeatedCancellationWebhook.body.refundRecorded === false,

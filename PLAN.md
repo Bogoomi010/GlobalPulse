@@ -23,7 +23,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Email OTP login endpoints are prepared for production through Resend, with demo login allowed only by explicit local binding
 - Comment reports are idempotent per anonymous session to reduce moderation queue spam
 - Token-protected moderation API and ops screen list reported comments and record hide/restore/dismiss review actions
-- Local full-stack smoke test runs Pages Functions with local D1 through Wrangler, verifies OTP login with local-only email log delivery, and exercises Toss confirm/refund webhook flows through a local provider mock
+- Local full-stack smoke test runs Pages Functions with local D1 through Wrangler, verifies OTP login with local-only email log delivery, and exercises Toss confirm/refund webhook flows plus webhook signature enforcement through a local provider mock
 - Production deploy gate blocks deployment when D1, Toss live payment secrets, moderation admin token, or verified email auth settings are missing
 - Payment blocked state when provider environment variables are missing
 - Payment server code now routes create/confirm/webhook flows through a provider adapter, with Toss implemented first
@@ -67,6 +67,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Payment status transitions and duplicate paid payment checks are implemented before wallet top-up.
    - Done: Payment provider adapter boundary is in place so Stripe/PayPal can be added without rewriting wallet logic.
    - Done: Webhook cancellation after a paid top-up records refund transactions and adjusts wallet balance when possible.
+   - Done: Local smoke test configures `TOSS_WEBHOOK_SECRET` and verifies missing or invalid Toss webhook signatures are rejected.
    - Remaining: Verify the full browser payment request with Toss test/live keys and production callback URLs.
 
 7. Deployment

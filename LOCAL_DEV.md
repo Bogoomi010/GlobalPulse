@@ -21,7 +21,7 @@ Open `http://127.0.0.1:8788`.
 `pages:dev` uses local placeholder Toss keys and `MODERATION_ADMIN_TOKEN=local-dev-moderation-token`. Replace the bindings with real Toss test keys before manually testing the payment window.
 Open the `Ops` navigation item and enter `local-dev-moderation-token` to inspect the local moderation queue after reporting a paid comment.
 
-Local Pages dev also sets `ALLOW_DEMO_LOGIN=true` so `/api/auth/login` can issue a test session without sending email. The API smoke test uses `AUTH_PROVIDER=resend` plus `AUTH_EMAIL_DELIVERY=log` to verify the OTP endpoints without sending real email. It also points `TOSS_API_BASE_URL` at a local Toss mock so payment confirm and cancellation webhook handling can be tested without live keys. Production must use Resend delivery and the official Toss API instead.
+Local Pages dev also sets `ALLOW_DEMO_LOGIN=true` so `/api/auth/login` can issue a test session without sending email. The API smoke test uses `AUTH_PROVIDER=resend` plus `AUTH_EMAIL_DELIVERY=log` to verify the OTP endpoints without sending real email. It also points `TOSS_API_BASE_URL` at a local Toss mock and configures a local `TOSS_WEBHOOK_SECRET` so payment confirm, signed cancellation webhook handling, and unsigned webhook rejection can be tested without live keys. Production must use Resend delivery and the official Toss API instead.
 
 ## API Smoke Test
 
@@ -49,6 +49,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Payment creation writes a pending Toss payment
 - Payment confirmation through the provider adapter increases wallet balance once
 - Payment failure/cancellation records a failed top-up transaction without increasing balance
+- Unsigned or incorrectly signed Toss webhooks are rejected when a webhook secret is configured
 - Paid payment cancellation webhook records a refund and does not duplicate repeated webhook handling
 
 ## Production Readiness Gate

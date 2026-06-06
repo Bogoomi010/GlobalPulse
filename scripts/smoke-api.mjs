@@ -183,6 +183,8 @@ const wrangler = spawn(
     '--binding',
     'MODERATION_ADMIN_TOKEN=smoke-moderation-token',
     '--binding',
+    `APP_PUBLIC_ORIGIN=${baseUrl}`,
+    '--binding',
     'ALLOW_DEMO_LOGIN=true',
     '--binding',
     'AUTH_PROVIDER=resend',
@@ -514,6 +516,27 @@ try {
   assert(payment.response.ok, 'Payment creation failed');
   assert(payment.body.status === 'pending', 'Payment should start as pending');
   assert(payment.body.orderId.startsWith('gp_'), 'Payment orderId should use GlobalPulse prefix');
+  assert(
+    payment.body.successUrl === `${baseUrl}/payment/success` &&
+      payment.body.failUrl === `${baseUrl}/payment/fail`,
+    'Payment callback URLs should use the configured public origin',
+  );
+
+  const hostileOriginPayment = await jsonRequest(baseUrl, '/api/payments/create', {
+    method: 'POST',
+    headers: auth,
+    body: JSON.stringify({
+      planId: 'krw-1000-toss',
+      idempotencyKey: randomUUID(),
+      origin: 'https://evil.example',
+    }),
+  });
+  assert(hostileOriginPayment.response.ok, 'Payment creation with hostile origin body failed');
+  assert(
+    hostileOriginPayment.body.successUrl === `${baseUrl}/payment/success` &&
+      hostileOriginPayment.body.failUrl === `${baseUrl}/payment/fail`,
+    'Configured public origin must override client-supplied payment callback origin',
+  );
 
   const paidPayment = await jsonRequest(baseUrl, '/api/payments/create', {
     method: 'POST',

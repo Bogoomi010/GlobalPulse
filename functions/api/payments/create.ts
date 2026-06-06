@@ -24,7 +24,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     const body = await readJson<CreatePaymentBody>(request);
     const planId = requireString(body.planId, 'planId');
     const idempotencyKey = requireString(body.idempotencyKey, 'idempotencyKey');
-    const origin = body.origin || new URL(request.url).origin;
+    const origin = resolveCallbackOrigin(env, request, body.origin);
 
     const existing = await env.DB.prepare(
       `
@@ -110,3 +110,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     return badRequest(error instanceof Error ? error.message : 'Invalid payment request');
   }
 };
+
+function resolveCallbackOrigin(env: Env, request: Request, requestedOrigin?: string): string {
+  const configuredOrigin = normalizeOrigin(env.APP_PUBLIC_ORIGIN);
+  if (configuredOrigin) return configuredOrigin;
+
+  const fallbackOrigin = normalizeOrigin(requestedOrigin) || normalizeOrigin(new URL(request.url).origin);
+  if (!fallbackOrigin) throw new Error('Valid payment callback origin is required');
+  return fallbackOrigin;
+}
+
+function normalizeOrigin(value?: string): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}

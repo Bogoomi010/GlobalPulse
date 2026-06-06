@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { URL, fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const wranglerPath = path.join(root, 'wrangler.toml');
@@ -17,6 +17,7 @@ const requiredEnv = [
   'RESEND_API_KEY',
   'AUTH_EMAIL_FROM',
   'MODERATION_ADMIN_TOKEN',
+  'APP_PUBLIC_ORIGIN',
 ];
 
 const failures = [];
@@ -53,6 +54,7 @@ const resendApiKey = process.env.RESEND_API_KEY || '';
 const authEmailFrom = process.env.AUTH_EMAIL_FROM || '';
 const allowDemoLogin = process.env.ALLOW_DEMO_LOGIN || '';
 const moderationAdminToken = process.env.MODERATION_ADMIN_TOKEN || '';
+const appPublicOrigin = process.env.APP_PUBLIC_ORIGIN || '';
 
 if (viteClientKey && !/^live_(ck|gck)_/.test(viteClientKey)) {
   failures.push('VITE_TOSS_CLIENT_KEY must be a Toss live client key for production deployment.');
@@ -92,6 +94,23 @@ if (moderationAdminToken && moderationAdminToken.length < 32) {
 
 if (moderationAdminToken && /local|dev|smoke|replace|secret|placeholder/i.test(moderationAdminToken)) {
   failures.push('MODERATION_ADMIN_TOKEN must not use local/dev/smoke/placeholder wording.');
+}
+
+if (appPublicOrigin) {
+  try {
+    const url = new URL(appPublicOrigin);
+    if (url.protocol !== 'https:') {
+      failures.push('APP_PUBLIC_ORIGIN must use https for production payment callbacks.');
+    }
+    if (url.pathname !== '/' || url.search || url.hash) {
+      failures.push('APP_PUBLIC_ORIGIN must be an origin only, without path, query, or hash.');
+    }
+    if (/^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(url.hostname)) {
+      failures.push('APP_PUBLIC_ORIGIN must not point to a local development host.');
+    }
+  } catch {
+    failures.push('APP_PUBLIC_ORIGIN must be a valid URL origin.');
+  }
 }
 
 if (provider && provider !== 'toss') {

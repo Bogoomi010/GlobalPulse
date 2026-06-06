@@ -13,6 +13,7 @@ export type Env = {
   AUTH_EMAIL_REPLY_TO?: string;
   ALLOW_DEMO_LOGIN?: string;
   MODERATION_ADMIN_TOKEN?: string;
+  APP_PUBLIC_ORIGIN?: string;
 };
 
 export type ApiIssue = {

@@ -33,16 +33,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   const provider = configuredPaymentProvider(env);
   if (!provider) return badRequest('Payment provider is not supported', 400);
   if (!provider.isReady(env)) return badRequest('Payment provider is not configured', 503);
+  if (!env.TOSS_WEBHOOK_SECRET) {
+    return badRequest('TOSS_WEBHOOK_SECRET must be configured before processing payment webhooks', 503);
+  }
 
   const rawBody = await request.text();
   const signatureHeader =
     request.headers.get('tosspayments-webhook-signature') || request.headers.get('x-toss-signature');
-  if (signatureHeader) {
-    const signatureOk = await provider.verifyWebhookSignature(env, request, rawBody);
-    if (!signatureOk) return badRequest('Invalid webhook signature', 401);
-  } else if (env.TOSS_WEBHOOK_SECRET) {
-    return badRequest('Missing webhook signature', 401);
-  }
+  if (!signatureHeader) return badRequest('Missing webhook signature', 401);
+  const signatureOk = await provider.verifyWebhookSignature(env, request, rawBody);
+  if (!signatureOk) return badRequest('Invalid webhook signature', 401);
 
   let payload: TossWebhookPayload;
   try {

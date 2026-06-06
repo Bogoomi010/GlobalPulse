@@ -18,10 +18,10 @@ yarn pages:dev
 
 Open `http://127.0.0.1:8788`.
 
-`pages:dev` uses local placeholder Toss keys, `APP_PUBLIC_ORIGIN=http://127.0.0.1:8788`, and `MODERATION_ADMIN_TOKEN=local-dev-moderation-token`. Replace the bindings with real Toss test keys before manually testing the payment window.
+`pages:dev` uses local placeholder Toss keys, `TOSS_WEBHOOK_SECRET=local-dev-webhook-secret`, `APP_PUBLIC_ORIGIN=http://127.0.0.1:8788`, and `MODERATION_ADMIN_TOKEN=local-dev-moderation-token`. Replace the bindings with real Toss test keys before manually testing the payment window.
 Open the `Ops` navigation item and enter `local-dev-moderation-token` to inspect the local moderation queue after reporting a paid comment.
 
-Local Pages dev also sets `ALLOW_DEMO_LOGIN=true` so `/api/auth/login` can issue a test session without sending email. The API smoke test uses `AUTH_PROVIDER=resend` plus `AUTH_EMAIL_DELIVERY=log` to verify the OTP endpoints without sending real email. It also points `TOSS_API_BASE_URL` at a local Toss mock and configures a local `TOSS_WEBHOOK_SECRET` so payment confirm, signed cancellation webhook handling, unsigned webhook rejection, and fixed callback origin behavior can be tested without live keys. Production must use Resend delivery and the official Toss API instead.
+Local Pages dev also sets `ALLOW_DEMO_LOGIN=true` so `/api/auth/login` can issue a test session without sending email. The API smoke test uses `AUTH_PROVIDER=resend` plus `AUTH_EMAIL_DELIVERY=log` to verify the OTP endpoints without sending real email. It also points `TOSS_API_BASE_URL` at a local Toss mock and configures a local `TOSS_WEBHOOK_SECRET` so payment confirm, signed cancellation webhook handling, unsigned webhook rejection, and fixed callback origin behavior can be tested without live keys. Production must use Resend delivery, the official Toss API, and a non-placeholder webhook secret instead.
 
 ## API Smoke Test
 

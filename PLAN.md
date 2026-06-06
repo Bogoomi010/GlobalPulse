@@ -75,6 +75,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Payment provider adapter boundary is in place so Stripe/PayPal can be added without rewriting wallet logic.
    - Done: Webhook cancellation after a paid top-up records refund transactions and adjusts wallet balance when possible.
    - Done: Local smoke test configures `TOSS_WEBHOOK_SECRET` and verifies missing or invalid Toss webhook signatures are rejected.
+   - Done: Payment webhooks require configured `TOSS_WEBHOOK_SECRET` at runtime before any payload is processed.
    - Done: Payment success/fail callback URLs use configured `APP_PUBLIC_ORIGIN` instead of trusting the client-supplied origin.
    - Done: Payment creation requires configured `APP_PUBLIC_ORIGIN` at runtime and works without accepting a client origin.
    - Done: Refunded payments are terminal for confirm/webhook processing and cannot be confirmed back into paid wallet credit.

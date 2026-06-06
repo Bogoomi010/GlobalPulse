@@ -150,7 +150,7 @@ const tossProvider: PaymentProviderAdapter = {
       };
     }
 
-    const response = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
+    const response = await fetch(`${tossApiBaseUrl(env)}/v1/payments/confirm`, {
       method: 'POST',
       headers: {
         Authorization: tossAuthHeader(env.TOSS_SECRET_KEY),
@@ -183,7 +183,7 @@ const tossProvider: PaymentProviderAdapter = {
     const path = input.paymentKey
       ? `/v1/payments/${encodeURIComponent(input.paymentKey)}`
       : `/v1/payments/orders/${encodeURIComponent(input.orderId || '')}`;
-    const response = await fetch(`https://api.tosspayments.com${path}`, {
+    const response = await fetch(`${tossApiBaseUrl(env)}${path}`, {
       headers: {
         Authorization: tossAuthHeader(env.TOSS_SECRET_KEY),
       },
@@ -196,6 +196,10 @@ const tossProvider: PaymentProviderAdapter = {
     return verifyTossSignature(request, rawBody, env.TOSS_WEBHOOK_SECRET);
   },
 };
+
+function tossApiBaseUrl(env: Env): string {
+  return (env.TOSS_API_BASE_URL || 'https://api.tosspayments.com').replace(/\/$/, '');
+}
 
 async function readProviderError(response: Response): Promise<unknown> {
   try {

@@ -27,6 +27,7 @@
 - Configure `AUTH_EMAIL_FROM` with a verified sender domain.
 - Ensure `ALLOW_DEMO_LOGIN` is not set in production.
 - Ensure `AUTH_EMAIL_DELIVERY=log` is not set in production.
+- Ensure `TOSS_API_BASE_URL` is unset or `https://api.tosspayments.com` in production.
 - Configure Toss Payments production client key.
 - Configure `VITE_TOSS_CLIENT_KEY` for the browser build.
 - Configure `TOSS_CLIENT_KEY` for the Pages Functions response.

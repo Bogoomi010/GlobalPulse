@@ -1,9 +1,11 @@
 import { execFileSync, spawn } from 'node:child_process';
+import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
+import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { URL, fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const persistTo = '.wrangler/smoke-state';
@@ -69,12 +71,81 @@ const waitForServer = async (baseUrl, process) => {
   throw new Error('Timed out waiting for Wrangler Pages dev');
 };
 
+const startTossMock = async () => {
+  const paymentsByKey = new Map();
+  const paymentsByOrder = new Map();
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url || '/', 'http://127.0.0.1');
+    const send = (status, body) => {
+      response.writeHead(status, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify(body));
+    };
+
+    if (request.method === 'POST' && url.pathname === '/v1/payments/confirm') {
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      const payment = {
+        paymentKey: body.paymentKey,
+        orderId: body.orderId,
+        totalAmount: Number(body.amount),
+        currency: 'KRW',
+        status: 'DONE',
+        cancels: null,
+      };
+      paymentsByKey.set(payment.paymentKey, payment);
+      paymentsByOrder.set(payment.orderId, payment);
+      send(200, payment);
+      return;
+    }
+
+    if (request.method === 'GET' && url.pathname.startsWith('/v1/payments/orders/')) {
+      const orderId = decodeURIComponent(url.pathname.replace('/v1/payments/orders/', ''));
+      const payment = paymentsByOrder.get(orderId);
+      send(payment ? 200 : 404, payment || { message: 'Payment not found' });
+      return;
+    }
+
+    if (request.method === 'GET' && url.pathname.startsWith('/v1/payments/')) {
+      const paymentKey = decodeURIComponent(url.pathname.replace('/v1/payments/', ''));
+      const payment = paymentsByKey.get(paymentKey);
+      send(payment ? 200 : 404, payment || { message: 'Payment not found' });
+      return;
+    }
+
+    send(404, { message: 'Unhandled Toss mock route' });
+  });
+
+  const port = await freePort();
+  await new Promise((resolve, reject) => {
+    server.listen(port, '127.0.0.1', resolve);
+    server.on('error', reject);
+  });
+
+  return {
+    baseUrl: `http://127.0.0.1:${port}`,
+    cancelPayment(paymentKey, cancelAmount) {
+      const payment = paymentsByKey.get(paymentKey);
+      if (!payment) throw new Error(`Missing mock payment ${paymentKey}`);
+      const cancelled = {
+        ...payment,
+        status: 'CANCELED',
+        cancels: [{ cancelAmount, transactionKey: `mock_cancel_${paymentKey}` }],
+      };
+      paymentsByKey.set(paymentKey, cancelled);
+      paymentsByOrder.set(payment.orderId, cancelled);
+    },
+    close: () => new Promise((resolve) => server.close(resolve)),
+  };
+};
+
 fs.rmSync(path.join(root, persistTo), { force: true, recursive: true });
 execFileSync('node', ['scripts/apply-local-migrations.mjs', persistTo], {
   cwd: root,
   stdio: 'inherit',
 });
 
+const tossMock = await startTossMock();
 const port = await freePort();
 const baseUrl = `http://127.0.0.1:${port}`;
 const wrangler = spawn(
@@ -101,6 +172,8 @@ const wrangler = spawn(
     'TOSS_CLIENT_KEY=test_ck_smoke',
     '--binding',
     'TOSS_SECRET_KEY=test_sk_smoke',
+    '--binding',
+    `TOSS_API_BASE_URL=${tossMock.baseUrl}`,
     '--log-level',
     'error',
     '--show-interactive-dev-session=false',
@@ -321,6 +394,111 @@ try {
   assert(payment.body.status === 'pending', 'Payment should start as pending');
   assert(payment.body.orderId.startsWith('gp_'), 'Payment orderId should use GlobalPulse prefix');
 
+  const paidPayment = await jsonRequest(baseUrl, '/api/payments/create', {
+    method: 'POST',
+    headers: auth,
+    body: JSON.stringify({
+      planId: 'krw-1000-toss',
+      idempotencyKey: randomUUID(),
+      origin: baseUrl,
+    }),
+  });
+  assert(paidPayment.response.ok, 'Paid payment creation failed');
+
+  const confirmPayment = await jsonRequest(baseUrl, '/api/payments/confirm', {
+    method: 'POST',
+    body: JSON.stringify({
+      paymentKey: `mock_${paidPayment.body.orderId}`,
+      orderId: paidPayment.body.orderId,
+      amount: paidPayment.body.amount,
+    }),
+  });
+  assert(confirmPayment.response.ok, 'Payment confirmation failed');
+  assert(confirmPayment.body.status === 'paid', 'Payment confirmation should mark payment paid');
+  assert(confirmPayment.body.wallet.balance === 1100, 'Confirmed payment should increase wallet balance');
+
+  const duplicateConfirmPayment = await jsonRequest(baseUrl, '/api/payments/confirm', {
+    method: 'POST',
+    body: JSON.stringify({
+      paymentKey: `mock_${paidPayment.body.orderId}`,
+      orderId: paidPayment.body.orderId,
+      amount: paidPayment.body.amount,
+    }),
+  });
+  assert(duplicateConfirmPayment.response.ok, 'Duplicate payment confirmation failed');
+  assert(
+    duplicateConfirmPayment.body.alreadyProcessed === true,
+    'Duplicate payment confirmation should be idempotent',
+  );
+
+  const walletAfterConfirmedPayment = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
+    headers: auth,
+  });
+  assert(walletAfterConfirmedPayment.response.ok, 'Wallet request after confirmed payment failed');
+  assert(
+    walletAfterConfirmedPayment.body.wallet.balance === 1100,
+    'Duplicate payment confirmation should not increase wallet balance twice',
+  );
+  assert(
+    walletAfterConfirmedPayment.body.transactions.some(
+      (transaction) =>
+        transaction.type === 'topup' &&
+        transaction.status === 'completed' &&
+        transaction.amount === paidPayment.body.amount &&
+        transaction.label === 'Wallet top-up completed' &&
+        transaction.reference === `payment:${paidPayment.body.paymentId}`,
+    ),
+    'Confirmed payment should appear in wallet transaction history',
+  );
+
+  tossMock.cancelPayment(`mock_${paidPayment.body.orderId}`, paidPayment.body.amount);
+  const cancellationWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
+    method: 'POST',
+    body: JSON.stringify({
+      eventType: 'PAYMENT_STATUS_CHANGED',
+      data: {
+        paymentKey: `mock_${paidPayment.body.orderId}`,
+        orderId: paidPayment.body.orderId,
+      },
+    }),
+  });
+  assert(cancellationWebhook.response.ok, 'Paid payment cancellation webhook failed');
+  assert(cancellationWebhook.body.status === 'refunded', 'Full cancellation should mark payment refunded');
+  assert(cancellationWebhook.body.refundRecorded === true, 'Cancellation webhook should record a refund');
+  assert(cancellationWebhook.body.walletAdjusted === true, 'Cancellation webhook should adjust wallet balance');
+
+  const repeatedCancellationWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
+    method: 'POST',
+    body: JSON.stringify({
+      eventType: 'PAYMENT_STATUS_CHANGED',
+      data: {
+        paymentKey: `mock_${paidPayment.body.orderId}`,
+        orderId: paidPayment.body.orderId,
+      },
+    }),
+  });
+  assert(repeatedCancellationWebhook.response.ok, 'Repeated cancellation webhook failed');
+  assert(
+    repeatedCancellationWebhook.body.refundRecorded === false,
+    'Repeated cancellation webhook should not duplicate refund transactions',
+  );
+
+  const walletAfterRefund = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
+    headers: auth,
+  });
+  assert(walletAfterRefund.response.ok, 'Wallet request after refund failed');
+  assert(walletAfterRefund.body.wallet.balance === 100, 'Refund should subtract the top-up from wallet balance');
+  assert(
+    walletAfterRefund.body.transactions.some(
+      (transaction) =>
+        transaction.type === 'refund' &&
+        transaction.status === 'completed' &&
+        transaction.amount === -paidPayment.body.amount &&
+        transaction.label === 'Payment refund',
+    ),
+    'Refund should appear in wallet transaction history',
+  );
+
   const paymentFail = await jsonRequest(baseUrl, '/api/payments/fail', {
     method: 'POST',
     body: JSON.stringify({
@@ -373,4 +551,5 @@ try {
   throw error;
 } finally {
   wrangler.kill('SIGTERM');
+  await tossMock.close();
 }

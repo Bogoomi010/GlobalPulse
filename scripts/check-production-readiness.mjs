@@ -43,6 +43,7 @@ const viteClientKey = process.env.VITE_TOSS_CLIENT_KEY || '';
 const serverClientKey = process.env.TOSS_CLIENT_KEY || '';
 const secretKey = process.env.TOSS_SECRET_KEY || '';
 const webhookSecret = process.env.TOSS_WEBHOOK_SECRET || '';
+const tossApiBaseUrl = process.env.TOSS_API_BASE_URL || '';
 const sessionSecret = process.env.SESSION_TOKEN_SECRET || '';
 const provider = process.env.PAYMENT_PROVIDER || '';
 const authProvider = process.env.AUTH_PROVIDER || '';
@@ -65,6 +66,10 @@ if (viteClientKey && serverClientKey && viteClientKey !== serverClientKey) {
 
 if (secretKey && !/^live_(sk|gsk)_/.test(secretKey)) {
   failures.push('TOSS_SECRET_KEY must be a Toss live secret key for production deployment.');
+}
+
+if (tossApiBaseUrl && tossApiBaseUrl.replace(/\/$/, '') !== 'https://api.tosspayments.com') {
+  failures.push('TOSS_API_BASE_URL must not override the official Toss Payments API in production.');
 }
 
 if (webhookSecret && webhookSecret.length < 24) {

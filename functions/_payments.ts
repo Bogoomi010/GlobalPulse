@@ -8,6 +8,7 @@ export type ProviderPayment = {
   providerPaymentId: string;
   providerOrderId: string;
   amount: number;
+  canceledAmount: number;
   currencyCode: string;
   rawStatus: string;
   status: ProviderPaymentStatus;
@@ -71,6 +72,10 @@ type TossPayment = {
   orderId: string;
   amount?: number;
   totalAmount?: number;
+  cancels?: Array<{
+    cancelAmount?: number;
+    transactionKey?: string;
+  }> | null;
   currency: string;
   status: string;
 };
@@ -86,10 +91,13 @@ export function configuredPaymentProvider(env: Env): PaymentProviderAdapter | nu
 
 export function normalizeProviderPayment(payment: TossPayment): ProviderPayment {
   const rawStatus = payment.status;
+  const amount = Number(payment.totalAmount ?? payment.amount);
+  const canceledAmount = getCanceledAmount(payment, amount);
   return {
     providerPaymentId: payment.paymentKey,
     providerOrderId: payment.orderId,
-    amount: Number(payment.totalAmount ?? payment.amount),
+    amount,
+    canceledAmount,
     currencyCode: payment.currency,
     rawStatus,
     status: normalizeTossStatus(rawStatus),
@@ -101,6 +109,15 @@ function normalizeTossStatus(status: string): ProviderPaymentStatus {
   if (normalized === 'DONE') return 'paid';
   if (normalized.includes('CANCEL')) return 'cancelled';
   return 'failed';
+}
+
+function getCanceledAmount(payment: TossPayment, amount: number): number {
+  const cancelsAmount = (payment.cancels ?? []).reduce(
+    (total, cancel) => total + Number(cancel.cancelAmount ?? 0),
+    0,
+  );
+  if (cancelsAmount > 0) return cancelsAmount;
+  return payment.status.toUpperCase() === 'CANCELED' ? amount : 0;
 }
 
 const tossProvider: PaymentProviderAdapter = {

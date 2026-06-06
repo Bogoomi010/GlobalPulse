@@ -57,6 +57,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Server-side amount verification is required before Toss confirmation.
    - Done: Payment status transitions and duplicate paid payment checks are implemented before wallet top-up.
    - Done: Payment provider adapter boundary is in place so Stripe/PayPal can be added without rewriting wallet logic.
+   - Done: Webhook cancellation after a paid top-up records refund transactions and adjusts wallet balance when possible.
    - Remaining: Verify the full browser payment request with Toss test/live keys and production callback URLs.
 
 7. Deployment

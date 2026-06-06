@@ -73,6 +73,7 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 - Approved payment increases wallet balance once.
 - Failed or cancelled payment appears in transaction history without increasing wallet balance.
 - Repeated failure/cancellation callbacks do not create duplicate transaction history rows.
+- Toss `CANCELED` or `PARTIAL_CANCELED` webhook after a paid top-up records a refund transaction and adjusts wallet balance when sufficient balance remains.
 - Paid comment subtracts 100 KRW and appears in the comment list.
 - Transaction history persists after refresh.
 - Mobile and desktop layouts remain usable.

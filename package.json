@@ -14,6 +14,7 @@
     "lint": "eslint .",
     "test:api": "yarn build && node scripts/smoke-api.mjs",
     "check:deploy": "node scripts/check-production-readiness.mjs",
+    "verify:production": "node scripts/verify-production.mjs",
     "deploy": "yarn lint && yarn test:api && yarn check:deploy && wrangler pages deploy dist"
   },
   "dependencies": {

@@ -69,3 +69,12 @@ CONFIRM_PRODUCTION_MIGRATIONS=globalpulse-production yarn db:migrate:production
 ```
 
 The production command applies the shared migration list to remote D1 through Wrangler and refuses to run until `wrangler.toml` has a real production `database_id` and the confirmation value matches `database_name`.
+
+## Production URL Verification
+
+```bash
+APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
+PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
+```
+
+The verifier checks the public app shell, payment return routes, seeded issue API count, protected API rejection, and moderation token protection. The email variant intentionally sends a production Resend OTP to the provided address and verifies that no local `devCode` leaks in the response.

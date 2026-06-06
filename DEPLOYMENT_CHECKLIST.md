@@ -7,6 +7,7 @@
 - Run `yarn test:api`.
 - Run `yarn check:deploy`.
 - Run `yarn db:migrate:production:dry-run`.
+- After deployment, run `APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production`.
 - Verify mobile and desktop layouts.
 
 ## D1
@@ -63,6 +64,8 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 
 - Production URL opens publicly.
 - Dummy issues are visible.
+- `APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production` passes.
+- `PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production` sends a Resend OTP without returning `devCode`.
 - `/api/issues` returns 20 seeded issues from D1.
 - Search, filters, and sort tabs work.
 - Anonymous like/dislike persists after refresh.

@@ -17,6 +17,8 @@
 ## Payments
 
 - Configure Toss Payments production client key.
+- Configure `VITE_TOSS_CLIENT_KEY` for the browser build.
+- Configure `TOSS_CLIENT_KEY` for the Pages Functions response.
 - Configure Toss Payments secret key.
 - Configure Toss Payments webhook secret.
 - Configure success, failure, cancel, and webhook callback URLs.
@@ -26,6 +28,7 @@
 ## Required Secrets
 
 - `VITE_TOSS_CLIENT_KEY`
+- `TOSS_CLIENT_KEY`
 - `TOSS_SECRET_KEY`
 - `TOSS_WEBHOOK_SECRET`
 - `SESSION_TOKEN_SECRET`
@@ -39,11 +42,13 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 
 - Production URL opens publicly.
 - Dummy issues are visible.
+- `/api/issues` returns 20 seeded issues from D1.
 - Search, filters, and sort tabs work.
 - Anonymous like/dislike persists after refresh.
 - Duplicate reactions from the same browser are prevented.
 - Login works through the real auth provider.
-- Top-up creates a pending payment.
+- Top-up creates a pending payment through `/api/payments/create`.
+- Toss payment success calls `/api/payments/confirm` with server-side amount verification.
 - Approved payment increases wallet balance once.
 - Failed or cancelled payment does not increase balance.
 - Paid comment subtracts 100 KRW and appears in the comment list.

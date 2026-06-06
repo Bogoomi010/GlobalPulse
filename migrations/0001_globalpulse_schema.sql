@@ -2,11 +2,17 @@ CREATE TABLE IF NOT EXISTS issues (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   summary TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT '',
   category TEXT NOT NULL CHECK (category IN ('World', 'Tech', 'Business', 'Culture', 'Science', 'Sports', 'Internet')),
   source_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   hot_score REAL NOT NULL DEFAULT 0,
-  status_badge TEXT NOT NULL DEFAULT 'Hot'
+  status_badge TEXT NOT NULL DEFAULT 'Hot',
+  reaction_velocity INTEGER NOT NULL DEFAULT 0,
+  is_sensitive INTEGER NOT NULL DEFAULT 0,
+  seed_like_count INTEGER NOT NULL DEFAULT 0,
+  seed_dislike_count INTEGER NOT NULL DEFAULT 0,
+  seed_comment_count INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS issue_sources (
@@ -70,7 +76,8 @@ CREATE TABLE IF NOT EXISTS payments (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   payment_plan_id TEXT NOT NULL REFERENCES payment_plans(id),
   provider_name TEXT NOT NULL,
-  provider_payment_id TEXT NOT NULL UNIQUE,
+  provider_order_id TEXT NOT NULL UNIQUE,
+  provider_payment_id TEXT UNIQUE,
   amount INTEGER NOT NULL CHECK (amount > 0),
   currency_code TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('pending', 'paid', 'failed', 'cancelled', 'refunded')),
@@ -119,3 +126,4 @@ CREATE INDEX IF NOT EXISTS idx_issue_reactions_issue ON issue_reactions(issue_id
 CREATE INDEX IF NOT EXISTS idx_comments_issue_created ON comments(issue_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_user_created ON wallet_transactions(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_payment_plans_country_active ON payment_plans(country_code, is_active);
+CREATE INDEX IF NOT EXISTS idx_payments_order_status ON payments(provider_order_id, status);

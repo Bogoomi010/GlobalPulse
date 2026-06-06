@@ -6,14 +6,16 @@ Build GlobalPulse as a mobile-first global issue reaction dashboard where anonym
 
 ## Current Milestone
 
-This repository now contains the frontend MVP shell:
+This repository now contains the frontend MVP shell plus the first production API layer:
 
 - Mobile-first dark feed UI
 - 20 neutral dummy issues across required categories
 - Search, category filters, and required sort tabs
-- Like/dislike optimistic UI with localStorage persistence
+- Like/dislike optimistic UI with D1 API support and localStorage fallback
 - Issue detail modal with sources, reaction split, comments, and moderation notes
 - Login, wallet, top-up plan, transaction history, about, and policy screens
+- Cloudflare Pages Functions for issues, anonymous reactions, login, wallet, paid comments, reports, and Toss payment create/confirm/webhook
+- D1 migrations for schema, payment plans, and dummy issue seed data
 - Payment blocked state when provider environment variables are missing
 
 ## Milestones
@@ -27,22 +29,23 @@ This repository now contains the frontend MVP shell:
    - Preserve neutral wording and "Anonymous global reaction" language.
 
 3. Anonymous reactions
-   - Frontend: create anonymous local session and optimistic state.
-   - Server: hash session token and store one reaction per session per issue in D1.
-   - Enforce toggle, cancel, and switch semantics.
+   - Done: Frontend creates an anonymous local token and uses optimistic state.
+   - Done: Server hashes session token and stores one reaction per session per issue in D1.
+   - Done: Toggle, cancel, and switch semantics are implemented in `/api/reactions`.
 
 4. Authentication and wallet
-   - Replace local demo login with server-backed email authentication suitable for the deployment environment.
-   - Create user and wallet records on first login.
+   - In progress: `/api/auth/login` creates user and wallet records on first login.
+   - Remaining: Replace demo email login with a verified email or deployment-provider authentication flow.
 
 5. Paid comments
-   - Create an atomic server endpoint that inserts a comment, subtracts 100 KRW, and inserts a wallet transaction.
-   - Require an idempotency key to prevent duplicate charge/comment writes.
+   - Done: `/api/comments` inserts a comment, subtracts 100 KRW, and inserts a wallet transaction in one D1 batch.
+   - Done: Idempotency key prevents duplicate charge/comment writes.
 
 6. Payments
-   - Implement provider adapter interface.
-   - Start with Toss Payments for KRW.
-   - Add webhook signature verification, duplicate payment protection, and payment status transitions.
+   - In progress: Toss create/confirm/webhook endpoints are implemented.
+   - Done: Server-side amount verification is required before Toss confirmation.
+   - Done: Payment status transitions and duplicate paid payment checks are implemented.
+   - Remaining: Connect the browser Toss payment SDK/widget and verify with live/test keys.
 
 7. Deployment
    - Add Cloudflare Pages/Workers or equivalent server runtime.
@@ -57,11 +60,12 @@ Frontend:
 
 Server:
 
+- `TOSS_CLIENT_KEY`
 - `TOSS_SECRET_KEY`
 - `TOSS_WEBHOOK_SECRET`
 - `PAYMENT_PROVIDER=toss`
 - `SESSION_TOKEN_SECRET`
-- `D1_DATABASE_BINDING`
+- Cloudflare D1 binding named `DB`
 
 ## Deployment Gate
 
@@ -69,9 +73,8 @@ Do not claim real payments are available until the payment provider keys, webhoo
 
 ## Remaining Production Work
 
-- Server runtime and D1 API endpoints
-- Real authentication
-- Toss Payments approval/cancel/fail/webhook flow
+- Real verified authentication
+- Browser Toss payment SDK/widget request flow
 - D1 migration execution in production
 - Production deployment URL verification
 - Legal/tax/refund/minor payment/privacy/moderation review

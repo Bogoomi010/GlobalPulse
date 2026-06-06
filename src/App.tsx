@@ -19,7 +19,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 type Category = 'World' | 'Tech' | 'Business' | 'Culture' | 'Science' | 'Sports' | 'Internet';
 type SortKey = 'Hot' | 'New' | 'Most Liked' | 'Most Disliked' | 'Most Divided' | 'Most Commented';
@@ -58,6 +58,7 @@ type Comment = {
 };
 
 type SessionUser = {
+  id?: string;
   email: string;
   displayName: string;
   countryCode: string;
@@ -73,11 +74,13 @@ type WalletTransaction = {
 };
 
 type PaymentPlan = {
+  id: string;
   country: string;
   currency: string;
   amount: number;
   label: string;
   provider: string;
+  providerPriceId?: string | null;
 };
 
 const categories: Category[] = ['World', 'Tech', 'Business', 'Culture', 'Science', 'Sports', 'Internet'];
@@ -91,13 +94,13 @@ const sortTabs: SortKey[] = [
 ];
 
 const paymentPlans: PaymentPlan[] = [
-  { country: 'KR', currency: 'KRW', amount: 1000, label: '1,000원', provider: 'toss' },
-  { country: 'KR', currency: 'KRW', amount: 2000, label: '2,000원', provider: 'toss' },
-  { country: 'KR', currency: 'KRW', amount: 3000, label: '3,000원', provider: 'toss' },
-  { country: 'KR', currency: 'KRW', amount: 5000, label: '5,000원', provider: 'toss' },
-  { country: 'KR', currency: 'KRW', amount: 10000, label: '10,000원', provider: 'toss' },
-  { country: 'US', currency: 'USD', amount: 5, label: '$5', provider: 'stripe' },
-  { country: 'JP', currency: 'JPY', amount: 500, label: '¥500', provider: 'stripe' },
+  { id: 'krw-1000-toss', country: 'KR', currency: 'KRW', amount: 1000, label: '1,000원', provider: 'toss' },
+  { id: 'krw-2000-toss', country: 'KR', currency: 'KRW', amount: 2000, label: '2,000원', provider: 'toss' },
+  { id: 'krw-3000-toss', country: 'KR', currency: 'KRW', amount: 3000, label: '3,000원', provider: 'toss' },
+  { id: 'krw-5000-toss', country: 'KR', currency: 'KRW', amount: 5000, label: '5,000원', provider: 'toss' },
+  { id: 'krw-10000-toss', country: 'KR', currency: 'KRW', amount: 10000, label: '10,000원', provider: 'toss' },
+  { id: 'usd-5-stripe', country: 'US', currency: 'USD', amount: 5, label: '$5', provider: 'stripe' },
+  { id: 'jpy-500-stripe', country: 'JP', currency: 'JPY', amount: 500, label: '¥500', provider: 'stripe' },
 ];
 
 const seedIssues: Issue[] = [
@@ -462,6 +465,30 @@ const writeJson = (key: string, value: unknown) => {
   localStorage.setItem(key, JSON.stringify(value));
 };
 
+const getOrCreateAnonymousToken = () => {
+  const existing = localStorage.getItem('globalpulse:anonymous-token');
+  if (existing) return existing;
+  const token = crypto.randomUUID();
+  localStorage.setItem('globalpulse:anonymous-token', token);
+  return token;
+};
+
+const requestJson = async <T,>(url: string, init?: RequestInit): Promise<T | null> => {
+  try {
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init?.headers ?? {}),
+      },
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+};
+
 export default function App() {
   const [issues, setIssues] = useState<Issue[]>(() => readJson('globalpulse:issues', seedIssues));
   const [comments, setComments] = useState<Comment[]>(() => readJson('globalpulse:comments', []));
@@ -473,15 +500,73 @@ export default function App() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>(() =>
     readJson('globalpulse:transactions', []),
   );
+  const [availablePlans, setAvailablePlans] = useState<PaymentPlan[]>(paymentPlans);
+  const [anonymousToken] = useState(getOrCreateAnonymousToken);
+  const [apiOnline, setApiOnline] = useState(false);
   const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
   const [sortKey, setSortKey] = useState<SortKey>('Hot');
   const [query, setQuery] = useState('');
   const [view, setView] = useState<View>('feed');
   const [authOpen, setAuthOpen] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'blocked' | 'success' | 'failed'>('idle');
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'blocked' | 'pending' | 'success' | 'failed'>('idle');
 
   const activeIssue = issues.find((issue) => issue.id === activeIssueId) ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+    void requestJson<{ issues: Issue[] }>('/api/issues').then((data) => {
+      if (cancelled || !data?.issues?.length) return;
+      setApiOnline(true);
+      setIssues(data.issues);
+      writeJson('globalpulse:issues', data.issues);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id || view !== 'wallet') return;
+    let cancelled = false;
+    const url = `/api/wallet?userId=${encodeURIComponent(user.id)}&countryCode=${encodeURIComponent(user.countryCode)}`;
+    void requestJson<{
+      wallet: { balance: number };
+      transactions: WalletTransaction[];
+      plans: PaymentPlan[];
+    }>(url).then((data) => {
+      if (cancelled || !data) return;
+      setApiOnline(true);
+      setBalance(data.wallet.balance);
+      setTransactions(data.transactions);
+      if (data.plans.length) setAvailablePlans(data.plans);
+      writeJson('globalpulse:balance', data.wallet.balance);
+      writeJson('globalpulse:transactions', data.transactions);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.countryCode, view]);
+
+  useEffect(() => {
+    if (!activeIssueId) return;
+    let cancelled = false;
+    void requestJson<{ comments: Comment[] }>(
+      `/api/comments?issueId=${encodeURIComponent(activeIssueId)}`,
+    ).then((data) => {
+      if (cancelled || !data) return;
+      setApiOnline(true);
+      setComments((currentComments) => {
+        const otherComments = currentComments.filter((comment) => comment.issueId !== activeIssueId);
+        const nextComments = [...data.comments, ...otherComments];
+        writeJson('globalpulse:comments', nextComments);
+        return nextComments;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeIssueId]);
 
   const filteredIssues = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -537,16 +622,38 @@ export default function App() {
       if (issue.id !== issueId) return issue;
       let likes = issue.likes;
       let dislikes = issue.dislikes;
-      if (previousReaction === 'like') likes -= 1;
-      if (previousReaction === 'dislike') dislikes -= 1;
+      if (previousReaction === 'like') likes = Math.max(0, likes - 1);
+      if (previousReaction === 'dislike') dislikes = Math.max(0, dislikes - 1);
       if (previousReaction !== nextReaction) {
         if (nextReaction === 'like') likes += 1;
         if (nextReaction === 'dislike') dislikes += 1;
       }
       return { ...issue, likes, dislikes };
     });
+    const optimisticReaction = previousReaction === nextReaction ? undefined : nextReaction;
     persistIssues(updatedIssues);
-    persistReactions({ ...reactions, [issueId]: previousReaction === nextReaction ? undefined : nextReaction });
+    persistReactions({ ...reactions, [issueId]: optimisticReaction });
+
+    void requestJson<{
+      currentReaction: Reaction | null;
+      issueId: string;
+      likes: number;
+      dislikes: number;
+    }>('/api/reactions', {
+      method: 'POST',
+      body: JSON.stringify({ issueId, reactionType: nextReaction, anonymousToken }),
+    }).then((data) => {
+      if (!data) return;
+      setApiOnline(true);
+      const nextIssues = updatedIssues.map((issue) =>
+        issue.id === issueId ? { ...issue, likes: data.likes, dislikes: data.dislikes } : issue,
+      );
+      persistIssues(nextIssues);
+      persistReactions({
+        ...reactions,
+        [issueId]: data.currentReaction ?? undefined,
+      });
+    });
   };
 
   const handleLogin = (event: FormEvent<HTMLFormElement>) => {
@@ -555,10 +662,24 @@ export default function App() {
     const email = String(form.get('email') ?? '').trim();
     const displayName = String(form.get('displayName') ?? '').trim() || 'Global member';
     if (!email) return;
-    const nextUser = { email, displayName, countryCode: 'KR' };
-    setUser(nextUser);
-    writeJson('globalpulse:user', nextUser);
-    setAuthOpen(false);
+
+    void requestJson<{
+      user: SessionUser;
+      wallet: { balance: number };
+    }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, displayName, countryCode: 'KR' }),
+    }).then((data) => {
+      const nextUser = data?.user ?? { email, displayName, countryCode: 'KR' };
+      setApiOnline(Boolean(data));
+      setUser(nextUser);
+      writeJson('globalpulse:user', nextUser);
+      if (data) {
+        setBalance(data.wallet.balance);
+        writeJson('globalpulse:balance', data.wallet.balance);
+      }
+      setAuthOpen(false);
+    });
   };
 
   const handleLogout = () => {
@@ -571,32 +692,56 @@ export default function App() {
       setAuthOpen(true);
       return;
     }
-    if (!paymentConfigured) {
+    if (!user.id || !paymentConfigured) {
       setPaymentStatus('blocked');
       const tx: WalletTransaction = {
         id: crypto.randomUUID(),
         type: 'failed_payment',
         amount: plan.amount,
         status: 'failed',
-        label: `${plan.label} payment blocked: provider env missing`,
+        label: `${plan.label} payment blocked: server login or provider env missing`,
         createdAt: new Date().toISOString(),
       };
       persistTransactions([tx, ...transactions]);
+      if (!user.id) setAuthOpen(true);
       return;
     }
-    const nextBalance = balance + plan.amount;
-    const tx: WalletTransaction = {
-      id: crypto.randomUUID(),
-      type: 'topup',
-      amount: plan.amount,
-      status: 'completed',
-      label: `${plan.label} top-up`,
-      createdAt: new Date().toISOString(),
-    };
-    setBalance(nextBalance);
-    writeJson('globalpulse:balance', nextBalance);
-    persistTransactions([tx, ...transactions]);
-    setPaymentStatus('success');
+
+    const idempotencyKey = crypto.randomUUID();
+    void requestJson<{
+      paymentId: string;
+      orderId: string;
+      amount: number;
+      currency: string;
+      status: 'pending';
+      clientKey: string;
+      successUrl: string;
+      failUrl: string;
+    }>('/api/payments/create', {
+      method: 'POST',
+      body: JSON.stringify({
+        userId: user.id,
+        planId: plan.id,
+        idempotencyKey,
+        origin: window.location.origin,
+      }),
+    }).then((data) => {
+      if (!data) {
+        setPaymentStatus('blocked');
+        return;
+      }
+      setApiOnline(true);
+      setPaymentStatus('pending');
+      const tx: WalletTransaction = {
+        id: data.paymentId,
+        type: 'topup',
+        amount: data.amount,
+        status: 'pending',
+        label: `${plan.label} pending Toss payment · ${data.orderId}`,
+        createdAt: new Date().toISOString(),
+      };
+      persistTransactions([tx, ...transactions]);
+    });
   };
 
   const handleComment = (event: FormEvent<HTMLFormElement>, issueId: string) => {
@@ -605,6 +750,36 @@ export default function App() {
     const form = new FormData(event.currentTarget);
     const content = String(form.get('comment') ?? '').trim();
     if (!content) return;
+
+    if (user.id) {
+      const formElement = event.currentTarget;
+      void requestJson<{
+        comment?: Comment;
+        wallet?: { balance: number };
+      }>('/api/comments', {
+        method: 'POST',
+        body: JSON.stringify({
+          issueId,
+          userId: user.id,
+          content,
+          idempotencyKey: crypto.randomUUID(),
+        }),
+      }).then((data) => {
+        if (!data?.comment) return;
+        setApiOnline(true);
+        const nextBalance = data.wallet?.balance ?? balance - commentCost;
+        const nextComments = [data.comment, ...comments];
+        const nextIssues = issues.map((issue) =>
+          issue.id === issueId ? { ...issue, comments: issue.comments + 1 } : issue,
+        );
+        setBalance(nextBalance);
+        writeJson('globalpulse:balance', nextBalance);
+        persistComments(nextComments);
+        persistIssues(nextIssues);
+        formElement.reset();
+      });
+      return;
+    }
 
     const comment: Comment = {
       id: crypto.randomUUID(),
@@ -706,6 +881,9 @@ export default function App() {
                 <p className="mt-5 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">
                   결제 설정이 완료되기 전까지 실제 충전은 차단됩니다. 카드번호 등 민감한 결제 정보는 저장하지 않습니다.
                 </p>
+                <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-xs leading-5 text-slate-400">
+                  Data mode: {apiOnline ? 'D1 API connected' : 'local fallback'}
+                </p>
               </aside>
             </section>
 
@@ -767,6 +945,7 @@ export default function App() {
             balance={balance}
             onPaymentAttempt={handlePaymentAttempt}
             paymentStatus={paymentStatus}
+            plans={availablePlans}
             transactions={transactions}
             user={user}
             onLogin={() => setAuthOpen(true)}
@@ -1029,13 +1208,15 @@ function WalletView({
   balance,
   transactions,
   paymentStatus,
+  plans,
   onPaymentAttempt,
   onLogin,
 }: {
   user: SessionUser | null;
   balance: number;
   transactions: WalletTransaction[];
-  paymentStatus: 'idle' | 'blocked' | 'success' | 'failed';
+  paymentStatus: 'idle' | 'blocked' | 'pending' | 'success' | 'failed';
+  plans: PaymentPlan[];
   onPaymentAttempt: (plan: PaymentPlan) => void;
   onLogin: () => void;
 }) {
@@ -1052,7 +1233,12 @@ function WalletView({
         ) : null}
         {paymentStatus === 'blocked' ? (
           <p className="mt-5 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-3 text-sm leading-6 text-amber-100">
-            결제 설정이 아직 완료되지 않았습니다. `VITE_TOSS_CLIENT_KEY`, 서버 secret, webhook secret 설정이 필요합니다.
+            결제 설정이 아직 완료되지 않았습니다. `VITE_TOSS_CLIENT_KEY`, `TOSS_CLIENT_KEY`, 서버 secret, webhook 설정이 필요합니다.
+          </p>
+        ) : null}
+        {paymentStatus === 'pending' ? (
+          <p className="mt-5 rounded-2xl border border-cyan-300/30 bg-cyan-300/10 p-3 text-sm leading-6 text-cyan-100">
+            결제 요청이 생성되었습니다. 실제 잔액 증가는 Toss 승인 후 `/api/payments/confirm` 또는 webhook에서 처리됩니다.
           </p>
         ) : null}
       </aside>
@@ -1066,8 +1252,8 @@ function WalletView({
             결제 전 최종 금액, 통화, 환불 정책을 확인해야 합니다. 실제 서비스 출시 전 국가별 세금, 환불, 결제 규정은 운영자가 확인해야 합니다.
           </p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {paymentPlans.map((plan) => (
-              <button className="plan-card" key={`${plan.country}-${plan.amount}`} onClick={() => onPaymentAttempt(plan)}>
+            {plans.map((plan) => (
+              <button className="plan-card" key={plan.id} onClick={() => onPaymentAttempt(plan)}>
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{plan.country} · {plan.provider}</span>
                 <span className="mt-2 block text-3xl font-black">{plan.label}</span>
                 <span className="mt-3 inline-flex items-center gap-2 text-sm text-cyan-200">

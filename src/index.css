@@ -1,21 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Anybody:wght@800;900&family=Be+Vietnam+Pro:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-headline: "Anybody", "sans-serif";
-  --font-body: "Be Vietnam Pro", "sans-serif";
-  --font-label: "Space Grotesk", "sans-serif";
-
-  --color-ink: #1a1c1c;
-  --color-paper: #f9f9f9;
-  --color-card: #ffffff;
-  --color-lime-pop: #f0ff00;
-  --color-blue-pop: #0041c9;
-  --color-berry-pop: #bb0058;
-  --color-soft-gray: #eeeeee;
-
-  --shadow-sticker: 4px 4px 0 0 #1a1c1c;
-  --shadow-sticker-lg: 8px 8px 0 0 #1a1c1c;
+  --font-sans: "Inter", "sans-serif";
 }
 
 @layer base {
@@ -24,22 +11,79 @@
   }
 
   body {
-    @apply bg-paper font-body text-ink antialiased;
+    @apply bg-[#070A12] font-sans text-slate-100 antialiased;
   }
 
   button,
   a,
-  input {
-    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-berry-pop;
+  input,
+  textarea {
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300;
+  }
+
+  button {
+    @apply disabled:cursor-not-allowed disabled:opacity-50;
   }
 }
 
-@keyframes marquee {
-  from {
-    transform: translateX(0);
+@layer components {
+  .nav-pill {
+    @apply inline-flex min-h-10 items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-sm font-bold text-slate-100 transition hover:border-cyan-300/40 hover:bg-white/[0.1];
   }
 
-  to {
-    transform: translateX(-50%);
+  .filter-chip {
+    @apply whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-bold text-slate-300 transition hover:border-cyan-300/40;
   }
+
+  .filter-chip-active {
+    @apply border-cyan-300 bg-cyan-300 text-slate-950;
+  }
+
+  .sort-tab {
+    @apply whitespace-nowrap rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400 transition hover:text-slate-100;
+  }
+
+  .sort-tab-active {
+    @apply border-emerald-300/70 bg-emerald-300/15 text-emerald-100;
+  }
+
+  .badge {
+    @apply rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-xs font-black text-slate-300;
+  }
+
+  .reaction-button {
+    @apply inline-flex min-h-10 items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-black text-slate-200 transition hover:border-cyan-300/40;
+  }
+
+  .reaction-like-active {
+    @apply border-emerald-300 bg-emerald-300 text-slate-950;
+  }
+
+  .reaction-dislike-active {
+    @apply border-rose-300 bg-rose-300 text-slate-950;
+  }
+
+  .primary-button {
+    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200;
+  }
+
+  .form-label {
+    @apply mb-4 block text-sm font-bold text-slate-300;
+  }
+
+  .form-input {
+    @apply mt-2 w-full rounded-2xl border border-white/10 bg-[#070A12] px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-600;
+  }
+
+  .plan-card {
+    @apply rounded-3xl border border-white/10 bg-[#070A12] p-4 text-left transition hover:border-cyan-300/50 hover:bg-cyan-300/10;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

@@ -62,7 +62,8 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 - Toss payment success calls `/api/payments/confirm` with server-side amount verification.
 - Toss payment failure or cancellation calls `/api/payments/fail` and does not increase balance.
 - Approved payment increases wallet balance once.
-- Failed or cancelled payment does not increase balance.
+- Failed or cancelled payment appears in transaction history without increasing wallet balance.
+- Repeated failure/cancellation callbacks do not create duplicate transaction history rows.
 - Paid comment subtracts 100 KRW and appears in the comment list.
 - Transaction history persists after refresh.
 - Mobile and desktop layouts remain usable.

@@ -37,6 +37,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Comment reporting keeps the comment visible with reported status
 - The author can delete their own paid comment
 - Payment creation writes a pending Toss payment
+- Payment failure/cancellation records a failed top-up transaction without increasing balance
 
 ## Production Readiness Gate
 

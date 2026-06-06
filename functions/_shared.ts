@@ -45,6 +45,17 @@ export type AuthenticatedUser = {
   countryCode: string;
 };
 
+export type TopupTransactionStatus = 'completed' | 'failed' | 'cancelled';
+
+export type TopupTransactionInput = {
+  userId: string;
+  walletId: string;
+  paymentId: string;
+  amount: number;
+  currencyCode: string;
+  status: TopupTransactionStatus;
+};
+
 export function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -225,6 +236,35 @@ export function tossAuthHeader(secretKey: string): string {
 
 export function paymentProviderReady(env: Env): boolean {
   return Boolean(env.TOSS_CLIENT_KEY && env.TOSS_SECRET_KEY);
+}
+
+export async function recordTopupTransaction(
+  db: D1Database,
+  input: TopupTransactionInput,
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `
+        INSERT OR IGNORE INTO wallet_transactions
+          (id, user_id, wallet_id, transaction_type, amount, currency_code, status, payment_id, idempotency_key)
+        VALUES (?, ?, ?, 'topup', ?, ?, ?, ?, ?)
+      `,
+    )
+    .bind(
+      createId('wtx'),
+      input.userId,
+      input.walletId,
+      Number(input.amount),
+      input.currencyCode,
+      input.status,
+      input.paymentId,
+      input.status === 'completed'
+        ? `payment:${input.paymentId}`
+        : `payment:${input.paymentId}:${input.status}`,
+    )
+    .run();
+
+  return Number(result.meta.changes ?? 0) > 0;
 }
 
 export async function verifyTossSignature(

@@ -1,4 +1,13 @@
-import { Env, badRequest, createId, json, readJson, requireString, tossAuthHeader } from '../../_shared';
+import {
+  Env,
+  badRequest,
+  createId,
+  json,
+  readJson,
+  recordTopupTransaction,
+  requireString,
+  tossAuthHeader,
+} from '../../_shared';
 
 type ConfirmPaymentBody = {
   paymentKey?: string;
@@ -49,7 +58,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     if (!payment) return badRequest('Payment not found', 404);
     if (payment.status === 'paid') return json({ status: 'paid', alreadyProcessed: true });
     if (Number(payment.amount) !== amount) {
-      await markPaymentFailed(env.DB, payment.id, paymentKey);
+      await markPaymentFailed(env.DB, payment, paymentKey);
       return badRequest('Payment amount does not match the server-side payment record', 400);
     }
 
@@ -64,14 +73,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     });
 
     if (!tossResponse.ok) {
-      await markPaymentFailed(env.DB, payment.id, paymentKey);
+      await markPaymentFailed(env.DB, payment, paymentKey);
       return json({ status: 'failed', providerError: await tossResponse.json() }, tossResponse.status);
     }
 
     const tossPayment = (await tossResponse.json()) as TossPayment;
     const approvedAmount = Number(tossPayment.totalAmount ?? tossPayment.amount);
     if (tossPayment.status !== 'DONE' || approvedAmount !== Number(payment.amount)) {
-      await markPaymentFailed(env.DB, payment.id, paymentKey);
+      await markPaymentFailed(env.DB, payment, paymentKey);
       return badRequest('Payment was not approved by provider with the expected amount', 400);
     }
 
@@ -103,7 +112,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       return json({ status: 'paid', alreadyProcessed: true });
     }
 
-    const transactionId = createId('wtx');
     await env.DB.batch([
       env.DB.prepare(
         `
@@ -120,7 +128,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
           VALUES (?, ?, ?, 'topup', ?, ?, 'completed', ?, ?)
         `,
       ).bind(
-        transactionId,
+        createId('wtx'),
         payment.user_id,
         wallet.id,
         Number(payment.amount),
@@ -146,17 +154,45 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   }
 };
 
-async function markPaymentFailed(db: D1Database, paymentId: string, paymentKey: string): Promise<void> {
+async function markPaymentFailed(
+  db: D1Database,
+  payment: PaymentRow,
+  paymentKey: string,
+): Promise<void> {
+  const status = payment.status === 'cancelled' ? 'cancelled' : 'failed';
+
   await db
     .prepare(
       `
         UPDATE payments
-        SET status = 'failed',
+        SET status = ?,
             provider_payment_id = COALESCE(provider_payment_id, ?),
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = ? AND status != 'paid'
+        WHERE id = ? AND status NOT IN ('paid', 'refunded')
       `,
     )
-    .bind(paymentKey, paymentId)
+    .bind(status, paymentKey, payment.id)
     .run();
+
+  const wallet = await db
+    .prepare(
+      `
+        SELECT id
+        FROM wallets
+        WHERE user_id = ? AND currency_code = ?
+      `,
+    )
+    .bind(payment.user_id, payment.currency_code)
+    .first<{ id: string }>();
+
+  if (!wallet) return;
+
+  await recordTopupTransaction(db, {
+    userId: payment.user_id,
+    walletId: wallet.id,
+    paymentId: payment.id,
+    amount: Number(payment.amount),
+    currencyCode: payment.currency_code,
+    status,
+  });
 }

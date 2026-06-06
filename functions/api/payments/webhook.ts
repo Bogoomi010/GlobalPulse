@@ -1,4 +1,4 @@
-import { Env, badRequest, createId, json, tossAuthHeader, verifyTossSignature } from '../../_shared';
+import { Env, badRequest, createId, json, recordTopupTransaction, tossAuthHeader, verifyTossSignature } from '../../_shared';
 
 type TossWebhookPayload = {
   eventType?: string;
@@ -84,18 +84,43 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     providerAmount !== Number(payment.amount) ||
     providerPayment.currency !== payment.currency_code
   ) {
+    const providerStatus = providerPayment.status.toUpperCase().includes('CANCEL') ? 'cancelled' : 'failed';
+    const status =
+      payment.status === 'failed' || payment.status === 'cancelled' ? payment.status : providerStatus;
     await env.DB.prepare(
       `
         UPDATE payments
-        SET status = CASE WHEN ? = 'CANCELED' THEN 'cancelled' ELSE 'failed' END,
+        SET status = ?,
             provider_payment_id = COALESCE(provider_payment_id, ?),
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND status != 'paid'
       `,
     )
-      .bind(providerPayment.status, providerPayment.paymentKey, payment.id)
+      .bind(status, providerPayment.paymentKey, payment.id)
       .run();
-    return json({ status: 'ignored', providerStatus: providerPayment.status });
+
+    const wallet = await env.DB.prepare(
+      `
+        SELECT id
+        FROM wallets
+        WHERE user_id = ? AND currency_code = ?
+      `,
+    )
+      .bind(payment.user_id, payment.currency_code)
+      .first<{ id: string }>();
+
+    const transactionRecorded = wallet
+      ? await recordTopupTransaction(env.DB, {
+          userId: payment.user_id,
+          walletId: wallet.id,
+          paymentId: payment.id,
+          amount: Number(payment.amount),
+          currencyCode: payment.currency_code,
+          status,
+        })
+      : false;
+
+    return json({ status: 'ignored', providerStatus: providerPayment.status, transactionRecorded });
   }
 
   const wallet = await env.DB.prepare(

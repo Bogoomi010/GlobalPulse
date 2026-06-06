@@ -258,6 +258,51 @@ try {
   assert(payment.body.status === 'pending', 'Payment should start as pending');
   assert(payment.body.orderId.startsWith('gp_'), 'Payment orderId should use GlobalPulse prefix');
 
+  const paymentFail = await jsonRequest(baseUrl, '/api/payments/fail', {
+    method: 'POST',
+    body: JSON.stringify({
+      orderId: payment.body.orderId,
+      code: 'PAY_PROCESS_CANCELED',
+      message: 'Smoke test cancellation',
+    }),
+  });
+  assert(paymentFail.response.ok, 'Payment failure recording failed');
+  assert(paymentFail.body.status === 'cancelled', 'Cancelled payment should be recorded as cancelled');
+  assert(paymentFail.body.transactionRecorded === true, 'Cancelled payment should create a transaction');
+
+  const repeatedPaymentFail = await jsonRequest(baseUrl, '/api/payments/fail', {
+    method: 'POST',
+    body: JSON.stringify({
+      orderId: payment.body.orderId,
+      code: 'PAY_PROCESS_CANCELED',
+      message: 'Smoke test cancellation retry',
+    }),
+  });
+  assert(repeatedPaymentFail.response.ok, 'Repeated payment failure recording failed');
+  assert(
+    repeatedPaymentFail.body.transactionRecorded === false,
+    'Repeated payment failure should not create duplicate transactions',
+  );
+
+  const walletAfterFailedPayment = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
+    headers: auth,
+  });
+  assert(walletAfterFailedPayment.response.ok, 'Wallet request after failed payment failed');
+  assert(
+    walletAfterFailedPayment.body.wallet.balance === 100,
+    'Cancelled payment should not increase wallet balance',
+  );
+  assert(
+    walletAfterFailedPayment.body.transactions.some(
+      (transaction) =>
+        transaction.type === 'topup' &&
+        transaction.status === 'cancelled' &&
+        transaction.amount === payment.body.amount &&
+        transaction.label === `payment:${payment.body.paymentId}:cancelled`,
+    ),
+    'Cancelled payment should appear in wallet transaction history',
+  );
+
   console.log('GlobalPulse API smoke test passed');
 } catch (error) {
   console.error(wranglerOutput);

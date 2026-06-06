@@ -49,6 +49,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Payment creation writes a pending Toss payment
 - Duplicate payment creation requests return the original pending payment payload
 - Payment creation uses the configured public origin for success/fail callback URLs
+- Payment creation works without a client origin only because `APP_PUBLIC_ORIGIN` is configured
 - Payment confirmation through the provider adapter increases wallet balance once
 - Payment failure/cancellation records a failed top-up transaction without increasing balance
 - Unsigned or incorrectly signed Toss webhooks are rejected when a webhook secret is configured

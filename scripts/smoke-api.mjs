@@ -602,6 +602,21 @@ try {
     'Configured public origin must override client-supplied payment callback origin',
   );
 
+  const noClientOriginPayment = await jsonRequest(baseUrl, '/api/payments/create', {
+    method: 'POST',
+    headers: auth,
+    body: JSON.stringify({
+      planId: 'krw-1000-toss',
+      idempotencyKey: randomUUID(),
+    }),
+  });
+  assert(noClientOriginPayment.response.ok, 'Payment creation without client origin failed');
+  assert(
+    noClientOriginPayment.body.successUrl === `${baseUrl}/payment/success` &&
+      noClientOriginPayment.body.failUrl === `${baseUrl}/payment/fail`,
+    'Payment callback URLs must come from configured APP_PUBLIC_ORIGIN',
+  );
+
   const paidPayment = await jsonRequest(baseUrl, '/api/payments/create', {
     method: 'POST',
     headers: auth,

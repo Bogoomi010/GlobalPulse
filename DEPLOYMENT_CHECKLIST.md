@@ -66,6 +66,7 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 - Anonymous like/dislike persists after refresh.
 - Duplicate reactions from the same browser are prevented.
 - Login works through the Resend email OTP provider.
+- Logout revokes the current server session and protected APIs reject the old Bearer token.
 - Wallet, paid comment, and payment creation APIs reject requests without a valid Bearer session token.
 - Top-up creates a pending payment through `/api/payments/create`.
 - Browser opens Toss Payments V2 Standard payment window from the selected top-up plan.

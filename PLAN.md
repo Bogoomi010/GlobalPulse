@@ -18,6 +18,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Cloudflare Pages Functions for issues, anonymous reactions, login, wallet, paid comments, reports, and Toss payment create/confirm/webhook
 - D1 migrations for schema, payment plans, and dummy issue seed data
 - Server-issued session tokens protect wallet, paid comment, and payment creation APIs
+- Stored sessions can be checked through `/api/auth/me` and revoked through `/api/auth/logout`
 - Email OTP login endpoints are prepared for production through Resend, with demo login allowed only by explicit local binding
 - Local full-stack smoke test runs Pages Functions with local D1 through Wrangler, verifies OTP login with local-only email log delivery, and exercises Toss confirm/refund webhook flows through a local provider mock
 - Production deploy gate blocks deployment when D1, Toss live payment secrets, or verified email auth settings are missing
@@ -44,6 +45,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Login returns a server-issued session token stored only as a hash in D1.
    - Done: Wallet, paid comments, and payment creation require Bearer session authentication.
    - Done: `/api/auth/request-code` and `/api/auth/verify-code` support verified email OTP login through Resend.
+   - Done: `/api/auth/me` verifies stored sessions and `/api/auth/logout` revokes them server-side.
    - Remaining: Configure Resend production sender/domain and verify end-to-end email delivery in deployment.
 
 5. Paid comments

@@ -227,6 +227,10 @@ try {
   assert(login.body.wallet.balance === 0, 'New wallet should start at 0');
 
   const auth = { Authorization: `Bearer ${login.body.user.sessionToken}` };
+  const currentUser = await jsonRequest(baseUrl, '/api/auth/me', { headers: auth });
+  assert(currentUser.response.ok, 'Current user session request failed');
+  assert(currentUser.body.user.id === login.body.user.id, 'Current user should match login session');
+
   const wallet = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', { headers: auth });
   assert(wallet.response.ok, 'Authorized wallet request failed');
   assert(wallet.body.plans.some((plan) => plan.id === 'krw-1000-toss'), 'KRW 1,000 plan missing');
@@ -544,6 +548,18 @@ try {
     ),
     'Cancelled payment should appear in wallet transaction history',
   );
+
+  const logout = await jsonRequest(baseUrl, '/api/auth/logout', {
+    method: 'POST',
+    headers: auth,
+  });
+  assert(logout.response.ok, 'Logout request failed');
+  assert(logout.body.revoked === true, 'Logout should revoke the current session');
+
+  const walletAfterLogout = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
+    headers: auth,
+  });
+  assert(walletAfterLogout.response.status === 401, 'Revoked session should not access wallet');
 
   console.log('GlobalPulse API smoke test passed');
 } catch (error) {

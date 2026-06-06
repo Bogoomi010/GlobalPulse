@@ -674,6 +674,7 @@ export default function App() {
   const [paymentReturn, setPaymentReturn] = useState<PaymentReturn | null>(parsePaymentReturn);
 
   const activeIssue = issues.find((issue) => issue.id === activeIssueId) ?? null;
+  const activeSessionToken = user?.sessionToken;
 
   useEffect(() => {
     let cancelled = false;
@@ -687,6 +688,32 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!activeSessionToken) return;
+    let cancelled = false;
+    void requestJson<{ user: Omit<SessionUser, 'sessionToken'> }>('/api/auth/me', {
+      headers: { Authorization: `Bearer ${activeSessionToken}` },
+    }).then((data) => {
+      if (cancelled) return;
+      if (!data) {
+        setUser(null);
+        setBalance(0);
+        setTransactions([]);
+        localStorage.removeItem('globalpulse:user');
+        localStorage.removeItem('globalpulse:balance');
+        localStorage.removeItem('globalpulse:transactions');
+        return;
+      }
+      setApiOnline(true);
+      const nextUser = { ...data.user, sessionToken: activeSessionToken };
+      setUser(nextUser);
+      writeJson('globalpulse:user', nextUser);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSessionToken]);
 
   useEffect(() => {
     if (!user?.sessionToken || view !== 'wallet') return;
@@ -967,8 +994,18 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    if (user?.sessionToken) {
+      void requestJson<{ revoked: boolean }>('/api/auth/logout', {
+        method: 'POST',
+        headers: authHeaders(user),
+      });
+    }
     setUser(null);
+    setBalance(0);
+    setTransactions([]);
     localStorage.removeItem('globalpulse:user');
+    localStorage.removeItem('globalpulse:balance');
+    localStorage.removeItem('globalpulse:transactions');
   };
 
   const handlePaymentAttempt = (plan: PaymentPlan) => {

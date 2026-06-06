@@ -33,6 +33,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - D1 seeded issues are returned
 - Wallet API rejects unauthenticated requests
 - Email OTP request and verification return a server session token
+- Current session lookup works and logout revokes the server session
 - Local email log delivery is explicitly enabled only for the smoke runtime
 - Anonymous reactions can be added and cancelled
 - Paid comments reject missing auth and insufficient balance

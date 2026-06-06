@@ -52,6 +52,10 @@ export type AuthenticatedUser = {
   countryCode: string;
 };
 
+export type AuthenticatedSession = AuthenticatedUser & {
+  sessionId: string;
+};
+
 export type UserWithWallet = {
   user: AuthenticatedUser;
   wallet: {
@@ -282,7 +286,7 @@ export async function ensureUserWithWallet(
   };
 }
 
-export async function authenticateUser(request: Request, env: Env): Promise<AuthenticatedUser | null> {
+export async function authenticateUser(request: Request, env: Env): Promise<AuthenticatedSession | null> {
   const token = getBearerToken(request);
   if (!token) return null;
 
@@ -326,7 +330,27 @@ export async function authenticateUser(request: Request, env: Env): Promise<Auth
     email: user.email,
     displayName: user.display_name,
     countryCode: user.country_code,
+    sessionId: user.session_id,
   };
+}
+
+export async function revokeCurrentUserSession(request: Request, env: Env): Promise<boolean> {
+  const token = getBearerToken(request);
+  if (!token) return false;
+
+  const tokenHash = await hashSessionToken(token, env.SESSION_TOKEN_SECRET);
+  const result = await env.DB.prepare(
+    `
+      UPDATE user_sessions
+      SET revoked_at = CURRENT_TIMESTAMP
+      WHERE session_token_hash = ?
+        AND revoked_at IS NULL
+    `,
+  )
+    .bind(tokenHash)
+    .run();
+
+  return Number(result.meta.changes ?? 0) > 0;
 }
 
 export function unauthorized(): Response {

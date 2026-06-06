@@ -6,6 +6,7 @@ export type Env = {
   TOSS_WEBHOOK_SECRET?: string;
   PAYMENT_PROVIDER?: string;
   AUTH_PROVIDER?: string;
+  AUTH_EMAIL_DELIVERY?: string;
   RESEND_API_KEY?: string;
   AUTH_EMAIL_FROM?: string;
   AUTH_EMAIL_REPLY_TO?: string;

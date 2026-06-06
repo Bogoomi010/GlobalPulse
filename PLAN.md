@@ -18,7 +18,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - D1 migrations for schema, payment plans, and dummy issue seed data
 - Server-issued session tokens protect wallet, paid comment, and payment creation APIs
 - Email OTP login endpoints are prepared for production through Resend, with demo login allowed only by explicit local binding
-- Local full-stack smoke test runs Pages Functions with local D1 through Wrangler
+- Local full-stack smoke test runs Pages Functions with local D1 through Wrangler and verifies OTP login with local-only email log delivery
 - Production deploy gate blocks deployment when D1, Toss live payment secrets, or verified email auth settings are missing
 - Payment blocked state when provider environment variables are missing
 - Payment server code now routes create/confirm/webhook flows through a provider adapter, with Toss implemented first

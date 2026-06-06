@@ -20,6 +20,7 @@ const maxRequestsPerWindow = 3;
 
 export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   try {
+    const deliveryMode = env.AUTH_EMAIL_DELIVERY || 'resend';
     if (env.ALLOW_DEMO_LOGIN === 'true' && env.AUTH_PROVIDER !== 'resend') {
       return json({ status: 'demo_available', codeRequired: false });
     }
@@ -28,7 +29,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       return badRequest('AUTH_PROVIDER=resend is required for verified email login', 503);
     }
 
-    if (!env.SESSION_TOKEN_SECRET || !env.RESEND_API_KEY || !env.AUTH_EMAIL_FROM) {
+    if (!env.SESSION_TOKEN_SECRET) {
+      return badRequest('SESSION_TOKEN_SECRET is required for verified email login', 503);
+    }
+
+    if (deliveryMode === 'log' && env.ALLOW_DEMO_LOGIN !== 'true') {
+      return badRequest('Local email log delivery is only allowed with ALLOW_DEMO_LOGIN=true', 503);
+    }
+
+    if (deliveryMode !== 'log' && (!env.RESEND_API_KEY || !env.AUTH_EMAIL_FROM)) {
       return badRequest('Email login provider is not configured', 503);
     }
 
@@ -91,7 +100,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       return badRequest('Unable to send verification email', 502);
     }
 
-    return json({ status: 'code_sent', expiresInMinutes: codeTtlMinutes });
+    return json({
+      status: 'code_sent',
+      expiresInMinutes: codeTtlMinutes,
+      ...(deliveryMode === 'log' && env.ALLOW_DEMO_LOGIN === 'true' ? { devCode: code } : {}),
+    });
   } catch (error) {
     return badRequest(error instanceof Error ? error.message : 'Invalid email login request');
   }
@@ -111,6 +124,10 @@ async function sendVerificationEmail(
     idempotencyKey: string;
   },
 ): Promise<boolean> {
+  if (env.AUTH_EMAIL_DELIVERY === 'log') {
+    return env.ALLOW_DEMO_LOGIN === 'true';
+  }
+
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {

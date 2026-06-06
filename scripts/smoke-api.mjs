@@ -94,6 +94,10 @@ const wrangler = spawn(
     '--binding',
     'ALLOW_DEMO_LOGIN=true',
     '--binding',
+    'AUTH_PROVIDER=resend',
+    '--binding',
+    'AUTH_EMAIL_DELIVERY=log',
+    '--binding',
     'TOSS_CLIENT_KEY=test_ck_smoke',
     '--binding',
     'TOSS_SECRET_KEY=test_sk_smoke',
@@ -126,7 +130,7 @@ try {
   const walletWithoutAuth = await jsonRequest(baseUrl, '/api/wallet');
   assert(walletWithoutAuth.response.status === 401, 'Wallet API must reject missing session');
 
-  const demoLoginMode = await jsonRequest(baseUrl, '/api/auth/request-code', {
+  const loginCode = await jsonRequest(baseUrl, '/api/auth/request-code', {
     method: 'POST',
     body: JSON.stringify({
       email: 'smoke@example.com',
@@ -134,18 +138,18 @@ try {
       countryCode: 'KR',
     }),
   });
-  assert(demoLoginMode.response.ok, 'Demo login mode check failed');
-  assert(demoLoginMode.body.status === 'demo_available', 'Local auth should expose demo login mode');
+  assert(loginCode.response.ok, 'Email login code request failed');
+  assert(loginCode.body.status === 'code_sent', 'Email login code should be sent');
+  assert(/^\d{6}$/.test(loginCode.body.devCode), 'Local email log mode should return a dev code');
 
-  const login = await jsonRequest(baseUrl, '/api/auth/login', {
+  const login = await jsonRequest(baseUrl, '/api/auth/verify-code', {
     method: 'POST',
     body: JSON.stringify({
       email: 'smoke@example.com',
-      displayName: 'Smoke Tester',
-      countryCode: 'KR',
+      code: loginCode.body.devCode,
     }),
   });
-  assert(login.response.ok, 'POST /api/auth/login failed');
+  assert(login.response.ok, 'POST /api/auth/verify-code failed');
   assert(login.body.user.sessionToken, 'Login did not return a session token');
   assert(login.body.wallet.balance === 0, 'New wallet should start at 0');
 

@@ -20,7 +20,7 @@ Open `http://127.0.0.1:8788`.
 
 `pages:dev` uses local placeholder Toss keys. Replace the bindings with real Toss test keys before manually testing the payment window.
 
-Local Pages dev also sets `ALLOW_DEMO_LOGIN=true` so `/api/auth/login` can issue a test session without sending email. Production must use the verified email OTP flow instead.
+Local Pages dev also sets `ALLOW_DEMO_LOGIN=true` so `/api/auth/login` can issue a test session without sending email. The API smoke test uses `AUTH_PROVIDER=resend` plus `AUTH_EMAIL_DELIVERY=log` to verify the OTP endpoints without sending real email. Production must use Resend delivery instead.
 
 ## API Smoke Test
 
@@ -32,8 +32,8 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 
 - D1 seeded issues are returned
 - Wallet API rejects unauthenticated requests
-- Login returns a server session token
-- Local demo login is explicitly enabled only for the smoke runtime
+- Email OTP request and verification return a server session token
+- Local email log delivery is explicitly enabled only for the smoke runtime
 - Anonymous reactions can be added and cancelled
 - Paid comments reject missing auth and insufficient balance
 - Missing issue comments do not subtract wallet balance

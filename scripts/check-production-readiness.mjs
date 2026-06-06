@@ -46,6 +46,7 @@ const webhookSecret = process.env.TOSS_WEBHOOK_SECRET || '';
 const sessionSecret = process.env.SESSION_TOKEN_SECRET || '';
 const provider = process.env.PAYMENT_PROVIDER || '';
 const authProvider = process.env.AUTH_PROVIDER || '';
+const authEmailDelivery = process.env.AUTH_EMAIL_DELIVERY || '';
 const resendApiKey = process.env.RESEND_API_KEY || '';
 const authEmailFrom = process.env.AUTH_EMAIL_FROM || '';
 const allowDemoLogin = process.env.ALLOW_DEMO_LOGIN || '';
@@ -88,6 +89,10 @@ if (authProvider && authProvider !== 'resend') {
 
 if (allowDemoLogin === 'true') {
   failures.push('ALLOW_DEMO_LOGIN must not be enabled in production.');
+}
+
+if (authEmailDelivery === 'log') {
+  failures.push('AUTH_EMAIL_DELIVERY=log must not be enabled in production.');
 }
 
 if (resendApiKey && !/^re_/.test(resendApiKey)) {

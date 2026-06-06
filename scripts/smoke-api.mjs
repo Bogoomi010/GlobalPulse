@@ -163,6 +163,8 @@ const wrangler = spawn(
     '--binding',
     'SESSION_TOKEN_SECRET=smoke-session-secret',
     '--binding',
+    'MODERATION_ADMIN_TOKEN=smoke-moderation-token',
+    '--binding',
     'ALLOW_DEMO_LOGIN=true',
     '--binding',
     'AUTH_PROVIDER=resend',
@@ -378,6 +380,85 @@ try {
       (comment) => comment.id === paidComment.body.comment.id && comment.status === 'reported',
     ),
     'Reported comment should stay visible with reported status',
+  );
+
+  const moderationWithoutAuth = await jsonRequest(baseUrl, '/api/moderation/reports');
+  assert(moderationWithoutAuth.response.status === 401, 'Moderation reports must reject missing admin token');
+
+  const moderationAuth = { Authorization: 'Bearer smoke-moderation-token' };
+  const moderationQueue = await jsonRequest(baseUrl, '/api/moderation/reports?status=open', {
+    headers: moderationAuth,
+  });
+  assert(moderationQueue.response.ok, 'Moderation report queue failed');
+  assert(
+    moderationQueue.body.reports.some(
+      (item) =>
+        item.commentId === paidComment.body.comment.id &&
+        item.commentStatus === 'reported' &&
+        item.openReportCount === 1,
+    ),
+    'Reported comment should appear in the moderation queue',
+  );
+
+  const hideReportedComment = await jsonRequest(baseUrl, '/api/moderation/reports', {
+    method: 'PATCH',
+    headers: moderationAuth,
+    body: JSON.stringify({
+      action: 'hide',
+      commentId: paidComment.body.comment.id,
+      note: 'Smoke test hide',
+    }),
+  });
+  assert(hideReportedComment.response.ok, 'Moderation hide action failed');
+  assert(hideReportedComment.body.commentStatus === 'hidden', 'Moderation hide should hide the comment');
+  assert(hideReportedComment.body.openReportCount === 0, 'Moderation hide should close open reports');
+
+  const commentsAfterModerationHide = await jsonRequest(
+    baseUrl,
+    `/api/comments?issueId=${paidComment.body.comment.issueId}`,
+  );
+  assert(commentsAfterModerationHide.response.ok, 'Comment list after moderation hide failed');
+  assert(
+    !commentsAfterModerationHide.body.comments.some((comment) => comment.id === paidComment.body.comment.id),
+    'Hidden moderated comment should not be returned publicly',
+  );
+
+  const reviewedModerationQueue = await jsonRequest(baseUrl, '/api/moderation/reports?status=reviewed', {
+    headers: moderationAuth,
+  });
+  assert(reviewedModerationQueue.response.ok, 'Reviewed moderation report queue failed');
+  assert(
+    reviewedModerationQueue.body.reports.some(
+      (item) =>
+        item.commentId === paidComment.body.comment.id &&
+        item.review?.action === 'hide' &&
+        item.openReportCount === 0,
+    ),
+    'Reviewed moderation queue should include the hide decision',
+  );
+
+  const restoreReportedComment = await jsonRequest(baseUrl, '/api/moderation/reports', {
+    method: 'PATCH',
+    headers: moderationAuth,
+    body: JSON.stringify({
+      action: 'restore',
+      commentId: paidComment.body.comment.id,
+      note: 'Smoke test restore',
+    }),
+  });
+  assert(restoreReportedComment.response.ok, 'Moderation restore action failed');
+  assert(restoreReportedComment.body.commentStatus === 'visible', 'Moderation restore should make the comment visible');
+
+  const commentsAfterModerationRestore = await jsonRequest(
+    baseUrl,
+    `/api/comments?issueId=${paidComment.body.comment.issueId}`,
+  );
+  assert(commentsAfterModerationRestore.response.ok, 'Comment list after moderation restore failed');
+  assert(
+    commentsAfterModerationRestore.body.comments.some(
+      (comment) => comment.id === paidComment.body.comment.id && comment.status === 'visible',
+    ),
+    'Restored moderated comment should be returned publicly',
   );
 
   const deleteComment = await jsonRequest(

@@ -21,8 +21,9 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Stored sessions can be checked through `/api/auth/me` and revoked through `/api/auth/logout`
 - Email OTP login endpoints are prepared for production through Resend, with demo login allowed only by explicit local binding
 - Comment reports are idempotent per anonymous session to reduce moderation queue spam
+- Token-protected moderation API lists reported comments and records hide/restore/dismiss review actions
 - Local full-stack smoke test runs Pages Functions with local D1 through Wrangler, verifies OTP login with local-only email log delivery, and exercises Toss confirm/refund webhook flows through a local provider mock
-- Production deploy gate blocks deployment when D1, Toss live payment secrets, or verified email auth settings are missing
+- Production deploy gate blocks deployment when D1, Toss live payment secrets, moderation admin token, or verified email auth settings are missing
 - Payment blocked state when provider environment variables are missing
 - Payment server code now routes create/confirm/webhook flows through a provider adapter, with Toss implemented first
 
@@ -53,6 +54,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: `/api/comments` inserts a comment, subtracts 100 KRW, and inserts a wallet transaction in one D1 batch.
    - Done: Idempotency key prevents duplicate charge/comment writes.
    - Done: Comment reports are unique per comment and anonymous reporter session.
+   - Done: `/api/moderation/reports` lets token-authenticated operators list reports and hide, restore, or dismiss reported comments.
 
 6. Payments
    - Done: Toss create/confirm/fail/webhook endpoints are implemented.
@@ -85,6 +87,7 @@ Server:
 - `TOSS_WEBHOOK_SECRET`
 - `PAYMENT_PROVIDER=toss`
 - `SESSION_TOKEN_SECRET`
+- `MODERATION_ADMIN_TOKEN`
 - `AUTH_PROVIDER=resend`
 - `RESEND_API_KEY`
 - `AUTH_EMAIL_FROM`

@@ -18,6 +18,7 @@
 - Apply `migrations/0004_user_sessions.sql`.
 - Apply `migrations/0005_email_login_codes.sql`.
 - Apply `migrations/0006_comment_report_uniqueness.sql`.
+- Apply `migrations/0007_comment_report_reviews.sql`.
 - Seed production dummy issues and issue sources.
 - Bind the D1 database to the server runtime.
 
@@ -35,6 +36,7 @@
 - Configure Toss Payments secret key.
 - Configure Toss Payments webhook secret.
 - Configure `SESSION_TOKEN_SECRET` with a high-entropy production value.
+- Configure `MODERATION_ADMIN_TOKEN` with a high-entropy production value.
 - Configure success, failure, cancel, and webhook callback URLs.
 - Confirm `/payment/success` and `/payment/fail` route to the SPA through `public/_redirects`.
 - Verify provider signatures on webhook requests.
@@ -47,6 +49,7 @@
 - `TOSS_SECRET_KEY`
 - `TOSS_WEBHOOK_SECRET`
 - `SESSION_TOKEN_SECRET`
+- `MODERATION_ADMIN_TOKEN`
 - `PAYMENT_PROVIDER`
 - `AUTH_PROVIDER`
 - `RESEND_API_KEY`
@@ -56,7 +59,7 @@
 
 If payment secrets or production webhook URLs are missing, do not deploy as a real-payment service and do not tell users that payments are available.
 
-`yarn deploy` runs `yarn check:deploy` and must fail until the production D1 UUID, Toss live keys, webhook secret, session secret, `PAYMENT_PROVIDER=toss`, and verified email auth settings are configured.
+`yarn deploy` runs `yarn check:deploy` and must fail until the production D1 UUID, Toss live keys, webhook secret, session secret, moderation admin token, `PAYMENT_PROVIDER=toss`, and verified email auth settings are configured.
 
 ## Post-Deploy Verification
 
@@ -79,6 +82,7 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 - Toss `CANCELED` or `PARTIAL_CANCELED` webhook after a paid top-up records a refund transaction and adjusts wallet balance when sufficient balance remains.
 - Paid comment subtracts 100 KRW and appears in the comment list.
 - Duplicate comment reports from the same anonymous session are idempotent.
+- `/api/moderation/reports` rejects missing admin tokens, lists reported comments, and can hide or restore a reviewed comment.
 - Transaction history persists after refresh.
 - Mobile and desktop layouts remain usable.
 

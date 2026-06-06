@@ -16,6 +16,7 @@ const requiredEnv = [
   'AUTH_PROVIDER',
   'RESEND_API_KEY',
   'AUTH_EMAIL_FROM',
+  'MODERATION_ADMIN_TOKEN',
 ];
 
 const failures = [];
@@ -51,6 +52,7 @@ const authEmailDelivery = process.env.AUTH_EMAIL_DELIVERY || '';
 const resendApiKey = process.env.RESEND_API_KEY || '';
 const authEmailFrom = process.env.AUTH_EMAIL_FROM || '';
 const allowDemoLogin = process.env.ALLOW_DEMO_LOGIN || '';
+const moderationAdminToken = process.env.MODERATION_ADMIN_TOKEN || '';
 
 if (viteClientKey && !/^live_(ck|gck)_/.test(viteClientKey)) {
   failures.push('VITE_TOSS_CLIENT_KEY must be a Toss live client key for production deployment.');
@@ -82,6 +84,14 @@ if (sessionSecret && sessionSecret.length < 32) {
 
 if (sessionSecret && /local|dev|smoke|replace|secret/i.test(sessionSecret)) {
   failures.push('SESSION_TOKEN_SECRET must not use local/dev/smoke/placeholder wording.');
+}
+
+if (moderationAdminToken && moderationAdminToken.length < 32) {
+  failures.push('MODERATION_ADMIN_TOKEN must be at least 32 characters.');
+}
+
+if (moderationAdminToken && /local|dev|smoke|replace|secret|placeholder/i.test(moderationAdminToken)) {
+  failures.push('MODERATION_ADMIN_TOKEN must not use local/dev/smoke/placeholder wording.');
 }
 
 if (provider && provider !== 'toss') {

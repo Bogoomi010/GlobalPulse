@@ -54,6 +54,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Payment failure/cancellation records a failed top-up transaction without increasing balance
 - Unsigned or incorrectly signed Toss webhooks are rejected when a webhook secret is configured
 - Paid payment cancellation webhook records a refund and does not duplicate repeated webhook handling
+- Refunded payments cannot be confirmed back into paid wallet credit
 
 ## Production Readiness Gate
 

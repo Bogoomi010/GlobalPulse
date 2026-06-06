@@ -81,6 +81,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     return handlePaidPaymentCancellation(env.DB, payment, providerPayment);
   }
 
+  if (payment.status === 'refunded') {
+    return json({ status: 'refunded', paymentId: payment.id, alreadyProcessed: true });
+  }
+
   if (
     providerPayment.status !== 'paid' ||
     Number(providerPayment.amount) !== Number(payment.amount) ||

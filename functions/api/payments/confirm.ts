@@ -45,6 +45,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
 
     if (!payment) return badRequest('Payment not found', 404);
     if (payment.status === 'paid') return json({ status: 'paid', alreadyProcessed: true });
+    if (payment.status === 'refunded') return json({ status: 'refunded', alreadyProcessed: true });
 
     const provider = getPaymentProvider(payment.provider_name);
     if (!provider) return badRequest('Payment provider is not supported', 400);

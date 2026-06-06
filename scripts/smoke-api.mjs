@@ -734,6 +734,30 @@ try {
     'Refund should appear in wallet transaction history',
   );
 
+  const confirmRefundedPayment = await jsonRequest(baseUrl, '/api/payments/confirm', {
+    method: 'POST',
+    body: JSON.stringify({
+      paymentKey: `mock_${paidPayment.body.orderId}`,
+      orderId: paidPayment.body.orderId,
+      amount: paidPayment.body.amount,
+    }),
+  });
+  assert(confirmRefundedPayment.response.ok, 'Confirming a refunded payment should be idempotent');
+  assert(
+    confirmRefundedPayment.body.status === 'refunded' &&
+      confirmRefundedPayment.body.alreadyProcessed === true,
+    'Refunded payment confirmation should not move the payment back to paid',
+  );
+
+  const walletAfterRefundedConfirm = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
+    headers: auth,
+  });
+  assert(walletAfterRefundedConfirm.response.ok, 'Wallet request after refunded confirm failed');
+  assert(
+    walletAfterRefundedConfirm.body.wallet.balance === 100,
+    'Refunded payment confirmation should not increase wallet balance',
+  );
+
   const paymentFail = await jsonRequest(baseUrl, '/api/payments/fail', {
     method: 'POST',
     body: JSON.stringify({

@@ -77,6 +77,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Local smoke test configures `TOSS_WEBHOOK_SECRET` and verifies missing or invalid Toss webhook signatures are rejected.
    - Done: Payment success/fail callback URLs use configured `APP_PUBLIC_ORIGIN` instead of trusting the client-supplied origin.
    - Done: Payment creation requires configured `APP_PUBLIC_ORIGIN` at runtime and works without accepting a client origin.
+   - Done: Refunded payments are terminal for confirm/webhook processing and cannot be confirmed back into paid wallet credit.
    - Remaining: Verify the full browser payment request with Toss test/live keys and production callback URLs.
 
 7. Deployment

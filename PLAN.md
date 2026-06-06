@@ -21,6 +21,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Local full-stack smoke test runs Pages Functions with local D1 through Wrangler
 - Production deploy gate blocks deployment when D1, Toss live payment secrets, or verified email auth settings are missing
 - Payment blocked state when provider environment variables are missing
+- Payment server code now routes create/confirm/webhook flows through a provider adapter, with Toss implemented first
 
 ## Milestones
 
@@ -55,6 +56,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: `/payment/fail` records failure or cancellation without increasing wallet balance.
    - Done: Server-side amount verification is required before Toss confirmation.
    - Done: Payment status transitions and duplicate paid payment checks are implemented before wallet top-up.
+   - Done: Payment provider adapter boundary is in place so Stripe/PayPal can be added without rewriting wallet logic.
    - Remaining: Verify the full browser payment request with Toss test/live keys and production callback URLs.
 
 7. Deployment

@@ -6,8 +6,8 @@ import {
   readJson,
   recordTopupTransaction,
   requireString,
-  tossAuthHeader,
 } from '../../_shared';
+import { getPaymentProvider } from '../../_payments';
 
 type ConfirmPaymentBody = {
   paymentKey?: string;
@@ -18,27 +18,15 @@ type ConfirmPaymentBody = {
 type PaymentRow = {
   id: string;
   user_id: string;
+  provider_name: string;
   provider_order_id: string;
   amount: number;
   currency_code: string;
   status: string;
 };
 
-type TossPayment = {
-  paymentKey: string;
-  orderId: string;
-  amount?: number;
-  totalAmount?: number;
-  currency: string;
-  status: string;
-};
-
 export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   try {
-    if (!env.TOSS_SECRET_KEY) {
-      return badRequest('Toss Payments secret key is not configured', 503);
-    }
-
     const body = await readJson<ConfirmPaymentBody>(request);
     const paymentKey = requireString(body.paymentKey, 'paymentKey');
     const orderId = requireString(body.orderId, 'orderId');
@@ -47,7 +35,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
 
     const payment = await env.DB.prepare(
       `
-        SELECT id, user_id, provider_order_id, amount, currency_code, status
+        SELECT id, user_id, provider_name, provider_order_id, amount, currency_code, status
         FROM payments
         WHERE provider_order_id = ?
       `,
@@ -57,29 +45,35 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
 
     if (!payment) return badRequest('Payment not found', 404);
     if (payment.status === 'paid') return json({ status: 'paid', alreadyProcessed: true });
+
+    const provider = getPaymentProvider(payment.provider_name);
+    if (!provider) return badRequest('Payment provider is not supported', 400);
+    if (!provider.isReady(env)) return badRequest('Payment provider is not configured', 503);
+
     if (Number(payment.amount) !== amount) {
       await markPaymentFailed(env.DB, payment, paymentKey);
       return badRequest('Payment amount does not match the server-side payment record', 400);
     }
 
-    const tossResponse = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
-      method: 'POST',
-      headers: {
-        Authorization: tossAuthHeader(env.TOSS_SECRET_KEY),
-        'Content-Type': 'application/json',
-        'Idempotency-Key': payment.id,
-      },
-      body: JSON.stringify({ paymentKey, orderId, amount }),
+    const providerResult = await provider.confirmPayment(env, {
+      paymentKey,
+      orderId,
+      amount,
+      idempotencyKey: payment.id,
     });
 
-    if (!tossResponse.ok) {
+    if (!providerResult.ok) {
       await markPaymentFailed(env.DB, payment, paymentKey);
-      return json({ status: 'failed', providerError: await tossResponse.json() }, tossResponse.status);
+      return json({ status: 'failed', providerError: providerResult.providerError }, providerResult.status);
     }
 
-    const tossPayment = (await tossResponse.json()) as TossPayment;
-    const approvedAmount = Number(tossPayment.totalAmount ?? tossPayment.amount);
-    if (tossPayment.status !== 'DONE' || approvedAmount !== Number(payment.amount)) {
+    const providerPayment = providerResult.payment;
+    if (
+      providerPayment.status !== 'paid' ||
+      providerPayment.providerOrderId !== payment.provider_order_id ||
+      Number(providerPayment.amount) !== Number(payment.amount) ||
+      providerPayment.currencyCode !== payment.currency_code
+    ) {
       await markPaymentFailed(env.DB, payment, paymentKey);
       return badRequest('Payment was not approved by provider with the expected amount', 400);
     }
@@ -105,7 +99,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
         WHERE id = ? AND status != 'paid'
       `,
     )
-      .bind(paymentKey, payment.id)
+      .bind(providerPayment.providerPaymentId, payment.id)
       .run();
 
     if (paidUpdate.meta.changes === 0) {

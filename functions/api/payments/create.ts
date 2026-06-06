@@ -4,11 +4,11 @@ import {
   badRequest,
   createId,
   json,
-  paymentProviderReady,
   readJson,
   requireString,
   unauthorized,
 } from '../../_shared';
+import { getPaymentProvider } from '../../_payments';
 
 type CreatePaymentBody = {
   planId?: string;
@@ -26,13 +26,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     const idempotencyKey = requireString(body.idempotencyKey, 'idempotencyKey');
     const origin = body.origin || new URL(request.url).origin;
 
-    if (!paymentProviderReady(env)) {
-      return badRequest('Payment provider is not configured', 503);
-    }
-
     const existing = await env.DB.prepare(
       `
-        SELECT id, provider_order_id, amount, currency_code, status
+        SELECT id, provider_name, provider_order_id, amount, currency_code, status
         FROM payments
         WHERE idempotency_key = ? AND user_id = ?
       `,
@@ -40,6 +36,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       .bind(idempotencyKey, user.id)
       .first<{
         id: string;
+        provider_name: string;
         provider_order_id: string;
         amount: number;
         currency_code: string;
@@ -47,17 +44,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       }>();
 
     if (existing) {
-      return json({
-        paymentId: existing.id,
-        orderId: existing.provider_order_id,
-        orderName: `GlobalPulse ${existing.amount} ${existing.currency_code} top-up`,
-        amount: Number(existing.amount),
-        currency: existing.currency_code,
-        status: existing.status,
-        clientKey: env.TOSS_CLIENT_KEY,
-        successUrl: `${origin}/payment/success`,
-        failUrl: `${origin}/payment/fail`,
-      });
+      const provider = getPaymentProvider(existing.provider_name);
+      if (!provider) return badRequest('Payment provider is not supported', 400);
+      if (!provider.isReady(env)) return badRequest('Payment provider is not configured', 503);
+
+      return json(
+        provider.buildCheckoutPayload(env, {
+          origin,
+          paymentId: existing.id,
+          orderId: existing.provider_order_id,
+          amount: Number(existing.amount),
+          currencyCode: existing.currency_code,
+          status: existing.status,
+        }),
+      );
     }
 
     const plan = await env.DB.prepare(
@@ -71,7 +71,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       .first<{ id: string; amount: number; currency_code: string; provider_name: string }>();
 
     if (!plan) return badRequest('Payment plan not found', 404);
-    if (plan.provider_name !== 'toss') return badRequest('Only Toss Payments is enabled for live KRW top-ups', 400);
+
+    const provider = getPaymentProvider(plan.provider_name);
+    if (!provider) return badRequest('Payment provider is not supported', 400);
+    if (!provider.isReady(env)) return badRequest('Payment provider is not configured', 503);
 
     const paymentId = createId('pay');
     const orderId = `gp_${crypto.randomUUID().replaceAll('-', '').slice(0, 28)}`;
@@ -95,17 +98,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       )
       .run();
 
-    return json({
+    return json(provider.buildCheckoutPayload(env, {
       paymentId,
+      origin,
       orderId,
-      orderName: `GlobalPulse ${plan.amount} ${plan.currency_code} top-up`,
       amount: Number(plan.amount),
-      currency: plan.currency_code,
+      currencyCode: plan.currency_code,
       status: 'pending',
-      clientKey: env.TOSS_CLIENT_KEY,
-      successUrl: `${origin}/payment/success`,
-      failUrl: `${origin}/payment/fail`,
-    });
+    }));
   } catch (error) {
     return badRequest(error instanceof Error ? error.message : 'Invalid payment request');
   }

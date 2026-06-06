@@ -1,4 +1,5 @@
-import { Env, badRequest, createId, json, recordTopupTransaction, tossAuthHeader, verifyTossSignature } from '../../_shared';
+import { Env, badRequest, createId, json, recordTopupTransaction } from '../../_shared';
+import { configuredPaymentProvider } from '../../_payments';
 
 type TossWebhookPayload = {
   eventType?: string;
@@ -21,32 +22,26 @@ type TossWebhookPayload = {
 type PaymentRow = {
   id: string;
   user_id: string;
+  provider_name: string;
   provider_order_id: string;
   amount: number;
   currency_code: string;
   status: string;
 };
 
-type TossPayment = {
-  paymentKey: string;
-  orderId: string;
-  totalAmount?: number;
-  amount?: number;
-  currency: string;
-  status: string;
-};
-
 export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
-  if (!env.TOSS_SECRET_KEY) {
-    return badRequest('Toss Payments secret key is not configured', 503);
-  }
+  const provider = configuredPaymentProvider(env);
+  if (!provider) return badRequest('Payment provider is not supported', 400);
+  if (!provider.isReady(env)) return badRequest('Payment provider is not configured', 503);
 
   const rawBody = await request.text();
   const signatureHeader =
     request.headers.get('tosspayments-webhook-signature') || request.headers.get('x-toss-signature');
   if (signatureHeader) {
-    const signatureOk = await verifyTossSignature(request, rawBody, env.TOSS_WEBHOOK_SECRET);
+    const signatureOk = await provider.verifyWebhookSignature(env, request, rawBody);
     if (!signatureOk) return badRequest('Invalid webhook signature', 401);
+  } else if (env.TOSS_WEBHOOK_SECRET) {
+    return badRequest('Missing webhook signature', 401);
   }
 
   let payload: TossWebhookPayload;
@@ -60,31 +55,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   const orderId = payload.data?.orderId || payload.orderId;
   if (!paymentKey && !orderId) return badRequest('paymentKey or orderId is required');
 
-  const providerPayment = await retrieveTossPayment(env.TOSS_SECRET_KEY, paymentKey, orderId);
+  const providerPayment = await provider.retrievePayment(env, { paymentKey, orderId });
   if (!providerPayment) return badRequest('Unable to verify payment with Toss Payments', 502);
 
   const payment = await env.DB.prepare(
     `
-      SELECT id, user_id, provider_order_id, amount, currency_code, status
+      SELECT id, user_id, provider_name, provider_order_id, amount, currency_code, status
       FROM payments
       WHERE provider_order_id = ?
     `,
   )
-    .bind(providerPayment.orderId)
+    .bind(providerPayment.providerOrderId)
     .first<PaymentRow>();
 
   if (!payment) return badRequest('Payment not found', 404);
+  if (payment.provider_name !== provider.name) return badRequest('Webhook provider does not match payment', 400);
   if (payment.status === 'paid') {
     return json({ status: 'already_processed', paymentId: payment.id });
   }
 
-  const providerAmount = Number(providerPayment.totalAmount ?? providerPayment.amount);
   if (
-    providerPayment.status !== 'DONE' ||
-    providerAmount !== Number(payment.amount) ||
-    providerPayment.currency !== payment.currency_code
+    providerPayment.status !== 'paid' ||
+    Number(providerPayment.amount) !== Number(payment.amount) ||
+    providerPayment.currencyCode !== payment.currency_code
   ) {
-    const providerStatus = providerPayment.status.toUpperCase().includes('CANCEL') ? 'cancelled' : 'failed';
+    const providerStatus = providerPayment.status === 'cancelled' ? 'cancelled' : 'failed';
     const status =
       payment.status === 'failed' || payment.status === 'cancelled' ? payment.status : providerStatus;
     await env.DB.prepare(
@@ -96,7 +91,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
         WHERE id = ? AND status != 'paid'
       `,
     )
-      .bind(status, providerPayment.paymentKey, payment.id)
+      .bind(status, providerPayment.providerPaymentId, payment.id)
       .run();
 
     const wallet = await env.DB.prepare(
@@ -120,7 +115,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
         })
       : false;
 
-    return json({ status: 'ignored', providerStatus: providerPayment.status, transactionRecorded });
+    return json({ status: 'ignored', providerStatus: providerPayment.rawStatus, transactionRecorded });
   }
 
   const wallet = await env.DB.prepare(
@@ -143,8 +138,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND status != 'paid'
     `,
-  )
-    .bind(providerPayment.paymentKey, payment.id)
+    )
+    .bind(providerPayment.providerPaymentId, payment.id)
     .run();
 
   if (paidUpdate.meta.changes === 0) {
@@ -179,20 +174,3 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
 
   return json({ status: 'paid', paymentId: payment.id });
 };
-
-async function retrieveTossPayment(
-  secretKey: string,
-  paymentKey?: string,
-  orderId?: string,
-): Promise<TossPayment | null> {
-  const path = paymentKey
-    ? `/v1/payments/${encodeURIComponent(paymentKey)}`
-    : `/v1/payments/orders/${encodeURIComponent(orderId || '')}`;
-  const response = await fetch(`https://api.tosspayments.com${path}`, {
-    headers: {
-      Authorization: tossAuthHeader(secretKey),
-    },
-  });
-  if (!response.ok) return null;
-  return (await response.json()) as TossPayment;
-}

@@ -28,6 +28,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Production deploy gate blocks deployment when D1, Toss live payment secrets, moderation admin token, fixed payment callback origin, or verified email auth settings are missing
 - Production D1 migration script shares the local migration list and requires an explicit confirmation value before applying remote migrations
 - Production URL verification script checks the public app, D1 issue seed count, protected API behavior, payment return routes, moderation protection, and optional Resend OTP delivery
+- Production URL verification can optionally create an authenticated pending payment payload to verify Toss client key exposure and callback URLs without charging
 - Launch review acknowledgement gate blocks production readiness until legal, tax, refund, minor payment, privacy, security, payment provider, and moderation review is explicitly completed
 - Payment blocked state when provider environment variables are missing
 - Payment server code now routes create/confirm/webhook flows through a provider adapter, with Toss implemented first
@@ -82,6 +83,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Add Cloudflare Pages/Workers or equivalent server runtime.
    - Done: `yarn db:migrate:production:dry-run` lists production migrations, and `yarn db:migrate:production` applies them only after `CONFIRM_PRODUCTION_MIGRATIONS` matches the configured D1 database name.
    - Done: `yarn verify:production` verifies the public deployment URL and can send a real Resend OTP when `PRODUCTION_VERIFY_EMAIL` is provided.
+   - Done: `yarn verify:production` can use `PRODUCTION_VERIFY_SESSION_TOKEN` to verify authenticated payment creation and production callback URLs without approving a charge.
    - Apply D1 migrations and bind the production database.
    - Run `yarn test:api` before deployment to verify local D1/API behavior.
    - Run `yarn check:deploy` before deployment to verify production D1, payment secrets, public origin, and launch review acknowledgement are configured.

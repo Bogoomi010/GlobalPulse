@@ -1,8 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import { URL } from 'node:url';
 
 const allowHttp = process.argv.includes('--allow-http');
 const target = process.argv.find((arg) => arg.startsWith('http')) || process.env.APP_PUBLIC_ORIGIN || '';
 const verificationEmail = process.env.PRODUCTION_VERIFY_EMAIL || '';
+const verificationSessionToken = process.env.PRODUCTION_VERIFY_SESSION_TOKEN || '';
+const verificationPlanId = process.env.PRODUCTION_VERIFY_PLAN_ID || 'krw-1000-toss';
 
 if (!target) {
   throw new Error('Set APP_PUBLIC_ORIGIN or pass a production URL to verify.');
@@ -75,6 +78,36 @@ await record('Payment create rejects missing session', async () => {
   if (response.status !== 401) throw new Error(`Expected 401, got ${response.status}`);
   return '401';
 });
+
+if (verificationSessionToken) {
+  await record('Authenticated payment create uses production callback origin', async () => {
+    const { body, response } = await fetchJson('/api/payments/create', {
+      body: JSON.stringify({
+        idempotencyKey: `verify-${randomUUID()}`,
+        origin: 'https://client-origin-must-be-ignored.example',
+        planId: verificationPlanId,
+      }),
+      headers: {
+        Authorization: `Bearer ${verificationSessionToken}`,
+      },
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error(`Expected 200, got ${response.status}: ${JSON.stringify(body)}`);
+    if (body?.status !== 'pending') throw new Error(`Expected pending payment, got ${body?.status}`);
+    if (!body?.clientKey) throw new Error('Payment payload must include a Toss client key');
+    if (!String(body?.orderId || '').startsWith('gp_')) throw new Error('Payment orderId must use gp_ prefix');
+    if (body?.successUrl !== `${origin.origin}/payment/success`) {
+      throw new Error(`Unexpected successUrl ${body?.successUrl}`);
+    }
+    if (body?.failUrl !== `${origin.origin}/payment/fail`) {
+      throw new Error(`Unexpected failUrl ${body?.failUrl}`);
+    }
+    if (!Number.isInteger(Number(body?.amount)) || Number(body.amount) <= 0) {
+      throw new Error(`Payment amount must be positive, got ${body?.amount}`);
+    }
+    return `${verificationPlanId} pending checkout payload`;
+  });
+}
 
 await record('Moderation API rejects missing admin token', async () => {
   const { response } = await fetchJson('/api/moderation/reports');

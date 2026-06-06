@@ -79,6 +79,8 @@ The production command applies the shared migration list to remote D1 through Wr
 ```bash
 APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
 PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
+PRODUCTION_VERIFY_SESSION_TOKEN=production-session-token APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
 ```
 
 The verifier checks the public app shell, payment return routes, seeded issue API count, protected API rejection, and moderation token protection. The email variant intentionally sends a production Resend OTP to the provided address and verifies that no local `devCode` leaks in the response.
+The session-token variant creates a pending payment checkout payload for `PRODUCTION_VERIFY_PLAN_ID` or `krw-1000-toss` and verifies that the returned success/fail URLs use the configured production origin. It does not approve or charge a payment.

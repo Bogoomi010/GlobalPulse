@@ -35,3 +35,11 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Paid comments reject missing auth and insufficient balance
 - Paid comment spending subtracts 100 KRW after a local wallet top-up
 - Payment creation writes a pending Toss payment
+
+## Production Readiness Gate
+
+```bash
+yarn check:deploy
+```
+
+This command is expected to fail in local development until production D1 and Toss live payment secrets are configured. It blocks `yarn deploy` when real payments cannot work safely.

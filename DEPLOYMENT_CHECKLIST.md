@@ -5,13 +5,17 @@
 - Run `yarn lint`.
 - Run `yarn build`.
 - Run `yarn test:api`.
+- Run `yarn check:deploy`.
 - Verify mobile and desktop layouts.
 
 ## D1
 
 - Create a production D1 database.
+- Replace `wrangler.toml` `database_id` with the production D1 database UUID.
 - Apply `migrations/0001_globalpulse_schema.sql`.
 - Apply `migrations/0002_payment_plans_seed.sql`.
+- Apply `migrations/0003_issues_seed.sql`.
+- Apply `migrations/0004_user_sessions.sql`.
 - Seed production dummy issues and issue sources.
 - Bind the D1 database to the server runtime.
 
@@ -40,6 +44,8 @@
 ## Stop Condition
 
 If payment secrets or production webhook URLs are missing, do not deploy as a real-payment service and do not tell users that payments are available.
+
+`yarn deploy` runs `yarn check:deploy` and must fail until the production D1 UUID, Toss live keys, webhook secret, session secret, and `PAYMENT_PROVIDER=toss` are configured.
 
 ## Post-Deploy Verification
 

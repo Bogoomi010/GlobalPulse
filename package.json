@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test:api": "yarn build && node scripts/smoke-api.mjs",
-    "deploy": "yarn build && wrangler pages deploy dist"
+    "check:deploy": "node scripts/check-production-readiness.mjs",
+    "deploy": "yarn lint && yarn test:api && yarn check:deploy && wrangler pages deploy dist"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

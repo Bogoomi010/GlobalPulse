@@ -16,11 +16,16 @@
 - Apply `migrations/0002_payment_plans_seed.sql`.
 - Apply `migrations/0003_issues_seed.sql`.
 - Apply `migrations/0004_user_sessions.sql`.
+- Apply `migrations/0005_email_login_codes.sql`.
 - Seed production dummy issues and issue sources.
 - Bind the D1 database to the server runtime.
 
 ## Payments
 
+- Configure `AUTH_PROVIDER=resend`.
+- Configure `RESEND_API_KEY`.
+- Configure `AUTH_EMAIL_FROM` with a verified sender domain.
+- Ensure `ALLOW_DEMO_LOGIN` is not set in production.
 - Configure Toss Payments production client key.
 - Configure `VITE_TOSS_CLIENT_KEY` for the browser build.
 - Configure `TOSS_CLIENT_KEY` for the Pages Functions response.
@@ -40,12 +45,15 @@
 - `TOSS_WEBHOOK_SECRET`
 - `SESSION_TOKEN_SECRET`
 - `PAYMENT_PROVIDER`
+- `AUTH_PROVIDER`
+- `RESEND_API_KEY`
+- `AUTH_EMAIL_FROM`
 
 ## Stop Condition
 
 If payment secrets or production webhook URLs are missing, do not deploy as a real-payment service and do not tell users that payments are available.
 
-`yarn deploy` runs `yarn check:deploy` and must fail until the production D1 UUID, Toss live keys, webhook secret, session secret, and `PAYMENT_PROVIDER=toss` are configured.
+`yarn deploy` runs `yarn check:deploy` and must fail until the production D1 UUID, Toss live keys, webhook secret, session secret, `PAYMENT_PROVIDER=toss`, and verified email auth settings are configured.
 
 ## Post-Deploy Verification
 
@@ -55,7 +63,7 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 - Search, filters, and sort tabs work.
 - Anonymous like/dislike persists after refresh.
 - Duplicate reactions from the same browser are prevented.
-- Login works through the real auth provider.
+- Login works through the Resend email OTP provider.
 - Wallet, paid comment, and payment creation APIs reject requests without a valid Bearer session token.
 - Top-up creates a pending payment through `/api/payments/create`.
 - Browser opens Toss Payments V2 Standard payment window from the selected top-up plan.

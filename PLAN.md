@@ -17,8 +17,9 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Cloudflare Pages Functions for issues, anonymous reactions, login, wallet, paid comments, reports, and Toss payment create/confirm/webhook
 - D1 migrations for schema, payment plans, and dummy issue seed data
 - Server-issued session tokens protect wallet, paid comment, and payment creation APIs
+- Email OTP login endpoints are prepared for production through Resend, with demo login allowed only by explicit local binding
 - Local full-stack smoke test runs Pages Functions with local D1 through Wrangler
-- Production deploy gate blocks deployment when D1 or Toss live payment secrets are missing
+- Production deploy gate blocks deployment when D1, Toss live payment secrets, or verified email auth settings are missing
 - Payment blocked state when provider environment variables are missing
 
 ## Milestones
@@ -40,7 +41,8 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: `/api/auth/login` creates user and wallet records on first login.
    - Done: Login returns a server-issued session token stored only as a hash in D1.
    - Done: Wallet, paid comments, and payment creation require Bearer session authentication.
-   - Remaining: Replace demo email login with a verified email or deployment-provider authentication flow.
+   - Done: `/api/auth/request-code` and `/api/auth/verify-code` support verified email OTP login through Resend.
+   - Remaining: Configure Resend production sender/domain and verify end-to-end email delivery in deployment.
 
 5. Paid comments
    - Done: `/api/comments` inserts a comment, subtracts 100 KRW, and inserts a wallet transaction in one D1 batch.
@@ -75,6 +77,9 @@ Server:
 - `TOSS_WEBHOOK_SECRET`
 - `PAYMENT_PROVIDER=toss`
 - `SESSION_TOKEN_SECRET`
+- `AUTH_PROVIDER=resend`
+- `RESEND_API_KEY`
+- `AUTH_EMAIL_FROM`
 - Cloudflare D1 binding named `DB`
 
 ## Deployment Gate
@@ -83,7 +88,7 @@ Do not claim real payments are available until the payment provider keys, webhoo
 
 ## Remaining Production Work
 
-- Real verified authentication
+- Resend sender/domain verification and email OTP delivery test in production
 - Toss test/live key verification in a deployed environment
 - D1 migration execution in production
 - Production deployment URL verification

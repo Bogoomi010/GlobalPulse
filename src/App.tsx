@@ -102,6 +102,14 @@ type PaymentReturn =
       status: 'recording' | 'recorded' | 'failed';
     };
 
+type AuthStep = 'details' | 'code';
+
+type PendingAuth = {
+  email: string;
+  displayName: string;
+  countryCode: string;
+};
+
 type TossPaymentRequest = {
   method: 'CARD';
   amount: {
@@ -617,6 +625,10 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [view, setView] = useState<View>('feed');
   const [authOpen, setAuthOpen] = useState(false);
+  const [authStep, setAuthStep] = useState<AuthStep>('details');
+  const [pendingAuth, setPendingAuth] = useState<PendingAuth | null>(null);
+  const [authMessage, setAuthMessage] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'blocked' | 'pending' | 'success' | 'failed'>('idle');
   const [paymentReturn, setPaymentReturn] = useState<PaymentReturn | null>(parsePaymentReturn);
 
@@ -819,29 +831,97 @@ export default function App() {
     });
   };
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const email = String(form.get('email') ?? '').trim();
-    const displayName = String(form.get('displayName') ?? '').trim() || 'Global member';
-    if (!email) return;
+  const closeAuth = () => {
+    setAuthOpen(false);
+    setAuthStep('details');
+    setPendingAuth(null);
+    setAuthMessage('');
+    setAuthBusy(false);
+  };
 
-    void requestJson<{
+  const finishLogin = (
+    nextUser: SessionUser,
+    wallet?: { balance: number },
+    online = false,
+  ) => {
+    setApiOnline(online);
+    setUser(nextUser);
+    writeJson('globalpulse:user', nextUser);
+    if (wallet) {
+      setBalance(wallet.balance);
+      writeJson('globalpulse:balance', wallet.balance);
+    }
+    closeAuth();
+  };
+
+  const loginWithDemoEndpoint = async (auth: PendingAuth) => {
+    const data = await requestJson<{
       user: SessionUser;
       wallet: { balance: number };
     }>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, displayName, countryCode: 'KR' }),
+      body: JSON.stringify(auth),
+    });
+    if (data) {
+      finishLogin(data.user, data.wallet, true);
+      return;
+    }
+    finishLogin(auth, undefined, false);
+  };
+
+  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setAuthMessage('');
+
+    if (authStep === 'code' && pendingAuth) {
+      const code = String(form.get('code') ?? '').trim();
+      if (!code) return;
+      setAuthBusy(true);
+      void requestJson<{
+        user: SessionUser;
+        wallet: { balance: number };
+      }>('/api/auth/verify-code', {
+        method: 'POST',
+        body: JSON.stringify({ email: pendingAuth.email, code }),
+      }).then((data) => {
+        setAuthBusy(false);
+        if (!data) {
+          setAuthMessage('인증 코드가 맞지 않거나 만료되었습니다.');
+          return;
+        }
+        finishLogin(data.user, data.wallet, true);
+      });
+      return;
+    }
+
+    const email = String(form.get('email') ?? '').trim();
+    const displayName = String(form.get('displayName') ?? '').trim() || 'Global member';
+    const auth = { email, displayName, countryCode: 'KR' };
+    if (!email) return;
+
+    setAuthBusy(true);
+    void requestJson<{
+      status: 'code_sent' | 'demo_available';
+      expiresInMinutes?: number;
+      codeRequired?: boolean;
+    }>('/api/auth/request-code', {
+      method: 'POST',
+      body: JSON.stringify(auth),
     }).then((data) => {
-      const nextUser = data?.user ?? { email, displayName, countryCode: 'KR' };
-      setApiOnline(Boolean(data));
-      setUser(nextUser);
-      writeJson('globalpulse:user', nextUser);
-      if (data) {
-        setBalance(data.wallet.balance);
-        writeJson('globalpulse:balance', data.wallet.balance);
+      if (data?.status === 'code_sent') {
+        setAuthBusy(false);
+        setPendingAuth(auth);
+        setAuthStep('code');
+        setAuthMessage(`인증 코드가 이메일로 전송되었습니다. ${data.expiresInMinutes ?? 10}분 안에 입력하세요.`);
+        return;
       }
-      setAuthOpen(false);
+      if (!data && apiOnline) {
+        setAuthBusy(false);
+        setAuthMessage('이메일 인증 설정이 아직 완료되지 않았습니다.');
+        return;
+      }
+      void loginWithDemoEndpoint(auth).finally(() => setAuthBusy(false));
     });
   };
 
@@ -1232,24 +1312,65 @@ export default function App() {
           <form className="w-full max-w-md rounded-3xl border border-white/10 bg-[#101827] p-5 shadow-2xl" onSubmit={handleLogin}>
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-2xl font-black">Login</h2>
-              <button type="button" onClick={() => setAuthOpen(false)} aria-label="닫기">
+              <button type="button" onClick={closeAuth} aria-label="닫기">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <label className="form-label">
-              Email
-              <input className="form-input" name="email" type="email" required placeholder="you@example.com" />
-            </label>
-            <label className="form-label">
-              Display name
-              <input className="form-input" name="displayName" placeholder="Pulse reader" />
-            </label>
+            {authStep === 'details' ? (
+              <>
+                <label className="form-label">
+                  Email
+                  <input className="form-input" name="email" type="email" required placeholder="you@example.com" />
+                </label>
+                <label className="form-label">
+                  Display name
+                  <input className="form-input" name="displayName" placeholder="Pulse reader" />
+                </label>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-300">
+                  <span className="block text-xs uppercase tracking-[0.16em] text-slate-500">Email</span>
+                  <span className="font-bold">{pendingAuth?.email}</span>
+                </div>
+                <label className="form-label">
+                  Verification code
+                  <input
+                    className="form-input"
+                    inputMode="numeric"
+                    maxLength={6}
+                    name="code"
+                    pattern="[0-9]{6}"
+                    placeholder="123456"
+                    required
+                  />
+                </label>
+              </>
+            )}
+            {authMessage ? (
+              <p className="mb-4 rounded-2xl border border-cyan-300/30 bg-cyan-300/10 p-3 text-sm leading-6 text-cyan-100">
+                {authMessage}
+              </p>
+            ) : null}
             <p className="mb-4 text-xs leading-5 text-slate-400">
-              MVP 화면 검증용 이메일 로그인입니다. 프로덕션에서는 서버 인증과 D1 users/wallets 저장소로 연결해야 합니다.
+              프로덕션에서는 이메일 인증 코드를 확인한 뒤 서버 세션을 발급합니다. 로컬 데모에서는 서버 설정에 따라 즉시 로그인할 수 있습니다.
             </p>
-            <button className="primary-button w-full" type="submit">
-              Continue
+            <button className="primary-button w-full disabled:opacity-60" disabled={authBusy} type="submit">
+              {authBusy ? 'Processing' : authStep === 'code' ? 'Verify code' : 'Continue'}
             </button>
+            {authStep === 'code' ? (
+              <button
+                className="mt-3 w-full text-sm font-bold text-slate-400 transition hover:text-white"
+                onClick={() => {
+                  setAuthStep('details');
+                  setPendingAuth(null);
+                  setAuthMessage('');
+                }}
+                type="button"
+              >
+                다른 이메일 사용
+              </button>
+            ) : null}
           </form>
         </div>
       ) : null}

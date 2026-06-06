@@ -5,6 +5,11 @@ export type Env = {
   TOSS_SECRET_KEY?: string;
   TOSS_WEBHOOK_SECRET?: string;
   PAYMENT_PROVIDER?: string;
+  AUTH_PROVIDER?: string;
+  RESEND_API_KEY?: string;
+  AUTH_EMAIL_FROM?: string;
+  AUTH_EMAIL_REPLY_TO?: string;
+  ALLOW_DEMO_LOGIN?: string;
 };
 
 export type ApiIssue = {
@@ -45,6 +50,15 @@ export type AuthenticatedUser = {
   countryCode: string;
 };
 
+export type UserWithWallet = {
+  user: AuthenticatedUser;
+  wallet: {
+    id?: string;
+    currencyCode: string;
+    balance: number;
+  };
+};
+
 export type TopupTransactionStatus = 'completed' | 'failed' | 'cancelled';
 
 export type TopupTransactionInput = {
@@ -83,6 +97,14 @@ export function requireString(value: unknown, field: string): string {
     throw new Error(`${field} is required`);
   }
   return value.trim();
+}
+
+export function normalizeEmail(value: string): string {
+  const email = value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error('Valid email is required');
+  }
+  return email;
 }
 
 export function createId(prefix: string): string {
@@ -177,6 +199,85 @@ export async function createUserSession(
     .bind(createId('session'), userId, tokenHash)
     .run();
   return sessionToken;
+}
+
+export async function ensureUserWithWallet(
+  db: D1Database,
+  input: {
+    email: string;
+    displayName: string;
+    countryCode: string;
+  },
+): Promise<UserWithWallet> {
+  const email = normalizeEmail(input.email);
+  const displayName = input.displayName.trim().slice(0, 80) || 'Global member';
+  const countryCode = input.countryCode.trim().toUpperCase().slice(0, 2) || 'KR';
+
+  const existing = await db
+    .prepare('SELECT id, email, display_name, country_code FROM users WHERE email = ?')
+    .bind(email)
+    .first<{ id: string; email: string; display_name: string; country_code: string }>();
+
+  const userId = existing?.id ?? createId('user');
+  const walletId = createId('wallet');
+
+  if (existing) {
+    await db.batch([
+      db.prepare(
+        `
+          UPDATE users
+          SET display_name = ?, country_code = ?, last_seen_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `,
+      ).bind(displayName, countryCode, userId),
+      db.prepare(
+        `
+          INSERT OR IGNORE INTO wallets (id, user_id, currency_code, balance_amount)
+          VALUES (?, ?, 'KRW', 0)
+        `,
+      ).bind(walletId, userId),
+    ]);
+  } else {
+    await db.batch([
+      db.prepare(
+        `
+          INSERT INTO users (id, email, display_name, country_code)
+          VALUES (?, ?, ?, ?)
+        `,
+      ).bind(userId, email, displayName, countryCode),
+      db.prepare(
+        `
+          INSERT OR IGNORE INTO wallets (id, user_id, currency_code, balance_amount)
+          VALUES (?, ?, 'KRW', 0)
+        `,
+      ).bind(walletId, userId),
+    ]);
+  }
+
+  const wallet = await db
+    .prepare(
+      `
+        SELECT id, currency_code, balance_amount
+        FROM wallets
+        WHERE user_id = ? AND currency_code = 'KRW'
+      `,
+    )
+    .bind(userId)
+    .first<{ id: string; currency_code: string; balance_amount: number }>();
+
+  return {
+    user: {
+      id: userId,
+      email,
+      displayName,
+      countryCode,
+    },
+    wallet: {
+      id: wallet?.id,
+      currencyCode: wallet?.currency_code ?? 'KRW',
+      balance: Number(wallet?.balance_amount ?? 0),
+    },
+  };
 }
 
 export async function authenticateUser(request: Request, env: Env): Promise<AuthenticatedUser | null> {

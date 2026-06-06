@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "pages:dev": "wrangler pages dev dist --persist-to .wrangler/state --binding SESSION_TOKEN_SECRET=local-dev-session-secret --binding TOSS_CLIENT_KEY=test_ck_replace_me --binding TOSS_SECRET_KEY=test_sk_replace_me --port 8788 --install-skills=false",
+    "pages:dev": "wrangler pages dev dist --persist-to .wrangler/state --binding SESSION_TOKEN_SECRET=local-dev-session-secret --binding ALLOW_DEMO_LOGIN=true --binding TOSS_CLIENT_KEY=test_ck_replace_me --binding TOSS_SECRET_KEY=test_sk_replace_me --port 8788 --install-skills=false",
     "db:migrate:local": "node scripts/apply-local-migrations.mjs",
     "build": "tsc -b && tsc -p tsconfig.functions.json && vite build",
     "preview": "vite preview",

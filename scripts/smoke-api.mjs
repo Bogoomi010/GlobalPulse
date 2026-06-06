@@ -92,6 +92,8 @@ const wrangler = spawn(
     '--binding',
     'SESSION_TOKEN_SECRET=smoke-session-secret',
     '--binding',
+    'ALLOW_DEMO_LOGIN=true',
+    '--binding',
     'TOSS_CLIENT_KEY=test_ck_smoke',
     '--binding',
     'TOSS_SECRET_KEY=test_sk_smoke',
@@ -123,6 +125,17 @@ try {
 
   const walletWithoutAuth = await jsonRequest(baseUrl, '/api/wallet');
   assert(walletWithoutAuth.response.status === 401, 'Wallet API must reject missing session');
+
+  const demoLoginMode = await jsonRequest(baseUrl, '/api/auth/request-code', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: 'smoke@example.com',
+      displayName: 'Smoke Tester',
+      countryCode: 'KR',
+    }),
+  });
+  assert(demoLoginMode.response.ok, 'Demo login mode check failed');
+  assert(demoLoginMode.body.status === 'demo_available', 'Local auth should expose demo login mode');
 
   const login = await jsonRequest(baseUrl, '/api/auth/login', {
     method: 'POST',

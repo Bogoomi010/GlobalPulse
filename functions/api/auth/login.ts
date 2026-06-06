@@ -1,4 +1,12 @@
-import { Env, badRequest, createId, createUserSession, json, readJson, requireString } from '../../_shared';
+import {
+  Env,
+  badRequest,
+  createUserSession,
+  ensureUserWithWallet,
+  json,
+  readJson,
+  requireString,
+} from '../../_shared';
 
 type LoginBody = {
   email?: string;
@@ -8,75 +16,28 @@ type LoginBody = {
 
 export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   try {
+    if (env.AUTH_PROVIDER === 'resend') {
+      return badRequest('Use email verification flow for production login', 400);
+    }
+
+    if (env.ALLOW_DEMO_LOGIN !== 'true') {
+      return badRequest('Demo login is disabled. Configure AUTH_PROVIDER=resend for verified email login.', 503);
+    }
+
     const body = await readJson<LoginBody>(request);
-    const email = requireString(body.email, 'email').toLowerCase();
+    const email = requireString(body.email, 'email');
     const displayName = requireString(body.displayName || 'Global member', 'displayName');
     const countryCode = (body.countryCode || 'KR').toUpperCase();
 
-    const existing = await env.DB.prepare('SELECT id, email, display_name, country_code FROM users WHERE email = ?')
-      .bind(email)
-      .first<{ id: string; email: string; display_name: string; country_code: string }>();
-
-    const userId = existing?.id ?? createId('user');
-    const walletId = createId('wallet');
-
-    if (existing) {
-      await env.DB.batch([
-        env.DB.prepare(
-        `
-          UPDATE users
-          SET display_name = ?, country_code = ?, last_seen_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-        `,
-        ).bind(displayName, countryCode, userId),
-        env.DB.prepare(
-          `
-            INSERT OR IGNORE INTO wallets (id, user_id, currency_code, balance_amount)
-            VALUES (?, ?, 'KRW', 0)
-          `,
-        ).bind(walletId, userId),
-      ]);
-    } else {
-      await env.DB.batch([
-        env.DB.prepare(
-          `
-            INSERT INTO users (id, email, display_name, country_code)
-            VALUES (?, ?, ?, ?)
-          `,
-        ).bind(userId, email, displayName, countryCode),
-        env.DB.prepare(
-          `
-            INSERT OR IGNORE INTO wallets (id, user_id, currency_code, balance_amount)
-            VALUES (?, ?, 'KRW', 0)
-          `,
-        ).bind(walletId, userId),
-      ]);
-    }
-
-    const wallet = await env.DB.prepare(
-      `
-        SELECT id, currency_code, balance_amount
-        FROM wallets
-        WHERE user_id = ? AND currency_code = 'KRW'
-      `,
-    )
-      .bind(userId)
-      .first<{ id: string; currency_code: string; balance_amount: number }>();
-    const sessionToken = await createUserSession(env.DB, userId, env.SESSION_TOKEN_SECRET);
+    const { user, wallet } = await ensureUserWithWallet(env.DB, { email, displayName, countryCode });
+    const sessionToken = await createUserSession(env.DB, user.id, env.SESSION_TOKEN_SECRET);
 
     return json({
       user: {
-        id: userId,
-        email,
-        displayName,
-        countryCode,
+        ...user,
         sessionToken,
       },
-      wallet: {
-        id: wallet?.id,
-        currencyCode: wallet?.currency_code ?? 'KRW',
-        balance: Number(wallet?.balance_amount ?? 0),
-      },
+      wallet,
     });
   } catch (error) {
     return badRequest(error instanceof Error ? error.message : 'Invalid login request');

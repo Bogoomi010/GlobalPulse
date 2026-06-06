@@ -13,6 +13,9 @@ const requiredEnv = [
   'TOSS_WEBHOOK_SECRET',
   'SESSION_TOKEN_SECRET',
   'PAYMENT_PROVIDER',
+  'AUTH_PROVIDER',
+  'RESEND_API_KEY',
+  'AUTH_EMAIL_FROM',
 ];
 
 const failures = [];
@@ -42,6 +45,10 @@ const secretKey = process.env.TOSS_SECRET_KEY || '';
 const webhookSecret = process.env.TOSS_WEBHOOK_SECRET || '';
 const sessionSecret = process.env.SESSION_TOKEN_SECRET || '';
 const provider = process.env.PAYMENT_PROVIDER || '';
+const authProvider = process.env.AUTH_PROVIDER || '';
+const resendApiKey = process.env.RESEND_API_KEY || '';
+const authEmailFrom = process.env.AUTH_EMAIL_FROM || '';
+const allowDemoLogin = process.env.ALLOW_DEMO_LOGIN || '';
 
 if (viteClientKey && !/^live_(ck|gck)_/.test(viteClientKey)) {
   failures.push('VITE_TOSS_CLIENT_KEY must be a Toss live client key for production deployment.');
@@ -73,6 +80,22 @@ if (sessionSecret && /local|dev|smoke|replace|secret/i.test(sessionSecret)) {
 
 if (provider && provider !== 'toss') {
   failures.push('PAYMENT_PROVIDER must be set to "toss" for the current production payment adapter.');
+}
+
+if (authProvider && authProvider !== 'resend') {
+  failures.push('AUTH_PROVIDER must be set to "resend" for verified production email login.');
+}
+
+if (allowDemoLogin === 'true') {
+  failures.push('ALLOW_DEMO_LOGIN must not be enabled in production.');
+}
+
+if (resendApiKey && !/^re_/.test(resendApiKey)) {
+  warnings.push('RESEND_API_KEY does not use the usual Resend "re_" prefix. Verify it before deployment.');
+}
+
+if (authEmailFrom && !/.+<[^@\s]+@[^@\s]+\.[^@\s]+>$|^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(authEmailFrom)) {
+  failures.push('AUTH_EMAIL_FROM must be an email address or "Name <email@example.com>" sender.');
 }
 
 if (warnings.length) {

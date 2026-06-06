@@ -201,7 +201,7 @@ const wrangler = spawn(
     '--log-level',
     'error',
     '--show-interactive-dev-session=false',
-    '--install-skills=false',
+    '--no-install-skills',
   ],
   {
     cwd: root,

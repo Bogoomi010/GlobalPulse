@@ -27,6 +27,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Production deploy gate blocks deployment when D1, Toss live payment secrets, moderation admin token, fixed payment callback origin, or verified email auth settings are missing
 - Production D1 migration script shares the local migration list and requires an explicit confirmation value before applying remote migrations
 - Production URL verification script checks the public app, D1 issue seed count, protected API behavior, payment return routes, moderation protection, and optional Resend OTP delivery
+- Launch review acknowledgement gate blocks production readiness until legal, tax, refund, minor payment, privacy, security, payment provider, and moderation review is explicitly completed
 - Payment blocked state when provider environment variables are missing
 - Payment server code now routes create/confirm/webhook flows through a provider adapter, with Toss implemented first
 
@@ -79,7 +80,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: `yarn verify:production` verifies the public deployment URL and can send a real Resend OTP when `PRODUCTION_VERIFY_EMAIL` is provided.
    - Apply D1 migrations and bind the production database.
    - Run `yarn test:api` before deployment to verify local D1/API behavior.
-   - Run `yarn check:deploy` before deployment to verify production D1 and payment secrets are configured.
+   - Run `yarn check:deploy` before deployment to verify production D1, payment secrets, public origin, and launch review acknowledgement are configured.
    - Stop before production deployment if payment secrets are missing.
 
 ## Required Environment Variables
@@ -100,6 +101,7 @@ Server:
 - `RESEND_API_KEY`
 - `AUTH_EMAIL_FROM`
 - `APP_PUBLIC_ORIGIN`
+- `LAUNCH_REVIEW_ACK`
 - Cloudflare D1 binding named `DB`
 
 ## Deployment Gate
@@ -113,3 +115,4 @@ Do not claim real payments are available until the payment provider keys, webhoo
 - D1 migration execution in production
 - Production deployment URL verification
 - Legal/tax/refund/minor payment/privacy/moderation review
+- Set `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` after completing the operator launch review

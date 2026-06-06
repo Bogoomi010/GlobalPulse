@@ -18,6 +18,7 @@ const requiredEnv = [
   'AUTH_EMAIL_FROM',
   'MODERATION_ADMIN_TOKEN',
   'APP_PUBLIC_ORIGIN',
+  'LAUNCH_REVIEW_ACK',
 ];
 
 const failures = [];
@@ -55,6 +56,7 @@ const authEmailFrom = process.env.AUTH_EMAIL_FROM || '';
 const allowDemoLogin = process.env.ALLOW_DEMO_LOGIN || '';
 const moderationAdminToken = process.env.MODERATION_ADMIN_TOKEN || '';
 const appPublicOrigin = process.env.APP_PUBLIC_ORIGIN || '';
+const launchReviewAck = process.env.LAUNCH_REVIEW_ACK || '';
 
 if (viteClientKey && !/^live_(ck|gck)_/.test(viteClientKey)) {
   failures.push('VITE_TOSS_CLIENT_KEY must be a Toss live client key for production deployment.');
@@ -111,6 +113,12 @@ if (appPublicOrigin) {
   } catch {
     failures.push('APP_PUBLIC_ORIGIN must be a valid URL origin.');
   }
+}
+
+if (launchReviewAck && launchReviewAck !== 'GLOBALPULSE_LAUNCH_REVIEW_COMPLETE') {
+  failures.push(
+    'LAUNCH_REVIEW_ACK must be set to GLOBALPULSE_LAUNCH_REVIEW_COMPLETE after operator launch review.',
+  );
 }
 
 if (provider && provider !== 'toss') {

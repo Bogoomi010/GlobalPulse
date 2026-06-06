@@ -61,6 +61,8 @@ yarn check:deploy
 
 This command is expected to fail in local development until production D1, Toss live payment secrets, Resend email settings, `APP_PUBLIC_ORIGIN`, and the moderation admin token are configured. It blocks `yarn deploy` when real payments or operational safeguards cannot work safely.
 
+`LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` is also required for production readiness. Use it only after completing `LAUNCH_REVIEW.md`; the value is an operator acknowledgement, not a legal substitute.
+
 ## Production D1 Migrations
 
 ```bash

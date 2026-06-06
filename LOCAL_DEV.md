@@ -60,3 +60,12 @@ yarn check:deploy
 ```
 
 This command is expected to fail in local development until production D1, Toss live payment secrets, Resend email settings, `APP_PUBLIC_ORIGIN`, and the moderation admin token are configured. It blocks `yarn deploy` when real payments or operational safeguards cannot work safely.
+
+## Production D1 Migrations
+
+```bash
+yarn db:migrate:production:dry-run
+CONFIRM_PRODUCTION_MIGRATIONS=globalpulse-production yarn db:migrate:production
+```
+
+The production command applies the shared migration list to remote D1 through Wrangler and refuses to run until `wrangler.toml` has a real production `database_id` and the confirmation value matches `database_name`.

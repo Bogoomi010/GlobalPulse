@@ -6,19 +6,15 @@
 - Run `yarn build`.
 - Run `yarn test:api`.
 - Run `yarn check:deploy`.
+- Run `yarn db:migrate:production:dry-run`.
 - Verify mobile and desktop layouts.
 
 ## D1
 
 - Create a production D1 database.
 - Replace `wrangler.toml` `database_id` with the production D1 database UUID.
-- Apply `migrations/0001_globalpulse_schema.sql`.
-- Apply `migrations/0002_payment_plans_seed.sql`.
-- Apply `migrations/0003_issues_seed.sql`.
-- Apply `migrations/0004_user_sessions.sql`.
-- Apply `migrations/0005_email_login_codes.sql`.
-- Apply `migrations/0006_comment_report_uniqueness.sql`.
-- Apply `migrations/0007_comment_report_reviews.sql`.
+- Review the migration list with `yarn db:migrate:production:dry-run`.
+- Apply all migrations with `CONFIRM_PRODUCTION_MIGRATIONS=globalpulse-production yarn db:migrate:production`.
 - Seed production dummy issues and issue sources.
 - Bind the D1 database to the server runtime.
 

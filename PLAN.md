@@ -70,6 +70,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: `/payment/fail` records failure or cancellation without increasing wallet balance.
    - Done: Server-side amount verification is required before Toss confirmation.
    - Done: Payment status transitions and duplicate paid payment checks are implemented before wallet top-up.
+   - Done: Payment creation idempotency returns the original pending payment payload on duplicate requests.
    - Done: Payment provider adapter boundary is in place so Stripe/PayPal can be added without rewriting wallet logic.
    - Done: Webhook cancellation after a paid top-up records refund transactions and adjusts wallet balance when possible.
    - Done: Local smoke test configures `TOSS_WEBHOOK_SECRET` and verifies missing or invalid Toss webhook signatures are rejected.

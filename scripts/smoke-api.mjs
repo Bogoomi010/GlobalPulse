@@ -541,12 +541,13 @@ try {
     'Deleted comment should not be returned',
   );
 
+  const paymentCreateKey = randomUUID();
   const payment = await jsonRequest(baseUrl, '/api/payments/create', {
     method: 'POST',
     headers: auth,
     body: JSON.stringify({
       planId: 'krw-1000-toss',
-      idempotencyKey: randomUUID(),
+      idempotencyKey: paymentCreateKey,
       origin: baseUrl,
     }),
   });
@@ -557,6 +558,32 @@ try {
     payment.body.successUrl === `${baseUrl}/payment/success` &&
       payment.body.failUrl === `${baseUrl}/payment/fail`,
     'Payment callback URLs should use the configured public origin',
+  );
+
+  const duplicatePaymentCreate = await jsonRequest(baseUrl, '/api/payments/create', {
+    method: 'POST',
+    headers: auth,
+    body: JSON.stringify({
+      planId: 'krw-5000-toss',
+      idempotencyKey: paymentCreateKey,
+      origin: 'https://evil.example',
+    }),
+  });
+  assert(duplicatePaymentCreate.response.ok, 'Duplicate payment creation failed');
+  assert(
+    duplicatePaymentCreate.body.paymentId === payment.body.paymentId &&
+      duplicatePaymentCreate.body.orderId === payment.body.orderId,
+    'Duplicate payment creation should return the original payment payload',
+  );
+  assert(
+    duplicatePaymentCreate.body.amount === payment.body.amount &&
+      duplicatePaymentCreate.body.currency === payment.body.currency,
+    'Duplicate payment creation should not switch plans or amount',
+  );
+  assert(
+    duplicatePaymentCreate.body.successUrl === `${baseUrl}/payment/success` &&
+      duplicatePaymentCreate.body.failUrl === `${baseUrl}/payment/fail`,
+    'Duplicate payment creation should keep the configured public callback origin',
   );
 
   const hostileOriginPayment = await jsonRequest(baseUrl, '/api/payments/create', {

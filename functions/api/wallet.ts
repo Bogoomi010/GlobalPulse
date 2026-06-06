@@ -1,11 +1,11 @@
-import { Env, badRequest, json } from '../_shared';
+import { Env, authenticateUser, json, unauthorized } from '../_shared';
 
 export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
   const url = new URL(request.url);
-  const userId = url.searchParams.get('userId');
-  const countryCode = (url.searchParams.get('countryCode') || 'KR').toUpperCase();
+  const user = await authenticateUser(request, env);
+  if (!user) return unauthorized();
 
-  if (!userId) return badRequest('userId is required');
+  const countryCode = (url.searchParams.get('countryCode') || 'KR').toUpperCase();
 
   const wallet = await env.DB.prepare(
     `
@@ -14,7 +14,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
       WHERE user_id = ? AND currency_code = 'KRW'
     `,
   )
-    .bind(userId)
+    .bind(user.id)
     .first<{ id: string; currency_code: string; balance_amount: number }>();
 
   const transactions = await env.DB.prepare(
@@ -26,7 +26,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
       LIMIT 100
     `,
   )
-    .bind(userId)
+    .bind(user.id)
     .all<{
       id: string;
       transaction_type: string;

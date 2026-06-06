@@ -16,6 +16,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Login, wallet, top-up plan, transaction history, about, and policy screens
 - Cloudflare Pages Functions for issues, anonymous reactions, login, wallet, paid comments, reports, and Toss payment create/confirm/webhook
 - D1 migrations for schema, payment plans, and dummy issue seed data
+- Server-issued session tokens protect wallet, paid comment, and payment creation APIs
 - Payment blocked state when provider environment variables are missing
 
 ## Milestones
@@ -34,7 +35,9 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Toggle, cancel, and switch semantics are implemented in `/api/reactions`.
 
 4. Authentication and wallet
-   - In progress: `/api/auth/login` creates user and wallet records on first login.
+   - Done: `/api/auth/login` creates user and wallet records on first login.
+   - Done: Login returns a server-issued session token stored only as a hash in D1.
+   - Done: Wallet, paid comments, and payment creation require Bearer session authentication.
    - Remaining: Replace demo email login with a verified email or deployment-provider authentication flow.
 
 5. Paid comments

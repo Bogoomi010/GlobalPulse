@@ -62,6 +62,7 @@ type SessionUser = {
   email: string;
   displayName: string;
   countryCode: string;
+  sessionToken?: string;
 };
 
 type WalletTransaction = {
@@ -534,6 +535,9 @@ const requestJson = async <T,>(url: string, init?: RequestInit): Promise<T | nul
   }
 };
 
+const authHeaders = (user: SessionUser | null): HeadersInit =>
+  user?.sessionToken ? { Authorization: `Bearer ${user.sessionToken}` } : {};
+
 const parsePaymentReturn = (): PaymentReturn | null => {
   const url = new URL(window.location.href);
   if (url.pathname === '/payment/success') {
@@ -631,14 +635,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!user?.id || view !== 'wallet') return;
+    if (!user?.sessionToken || view !== 'wallet') return;
     let cancelled = false;
-    const url = `/api/wallet?userId=${encodeURIComponent(user.id)}&countryCode=${encodeURIComponent(user.countryCode)}`;
+    const url = `/api/wallet?countryCode=${encodeURIComponent(user.countryCode)}`;
     void requestJson<{
       wallet: { balance: number };
       transactions: WalletTransaction[];
       plans: PaymentPlan[];
-    }>(url).then((data) => {
+    }>(url, { headers: authHeaders(user) }).then((data) => {
       if (cancelled || !data) return;
       setApiOnline(true);
       setBalance(data.wallet.balance);
@@ -650,7 +654,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, user?.countryCode, view]);
+  }, [user, view]);
 
   useEffect(() => {
     if (!activeIssueId) return;
@@ -850,14 +854,14 @@ export default function App() {
       setAuthOpen(true);
       return;
     }
-    if (!user.id) {
+    if (!user.id || !user.sessionToken) {
       setPaymentStatus('blocked');
       const tx: WalletTransaction = {
         id: crypto.randomUUID(),
         type: 'failed_payment',
         amount: plan.amount,
         status: 'failed',
-        label: `${plan.label} payment blocked: server login required`,
+        label: `${plan.label} payment blocked: server session required`,
         createdAt: new Date().toISOString(),
       };
       persistTransactions([tx, ...transactions]);
@@ -879,8 +883,8 @@ export default function App() {
       failUrl: string;
     }>('/api/payments/create', {
       method: 'POST',
+      headers: authHeaders(user),
       body: JSON.stringify({
-        userId,
         planId: plan.id,
         idempotencyKey,
         origin: window.location.origin,
@@ -943,16 +947,16 @@ export default function App() {
     const content = String(form.get('comment') ?? '').trim();
     if (!content) return;
 
-    if (user.id) {
+    if (user.sessionToken) {
       const formElement = event.currentTarget;
       void requestJson<{
         comment?: Comment;
         wallet?: { balance: number };
       }>('/api/comments', {
         method: 'POST',
+        headers: authHeaders(user),
         body: JSON.stringify({
           issueId,
-          userId: user.id,
           content,
           idempotencyKey: crypto.randomUUID(),
         }),

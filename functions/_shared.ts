@@ -38,6 +38,13 @@ export type IssueRow = {
   comment_count: number;
 };
 
+export type AuthenticatedUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  countryCode: string;
+};
+
 export function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -139,6 +146,79 @@ export async function ensureAnonymousSession(
   return id;
 }
 
+export async function createUserSession(
+  db: D1Database,
+  userId: string,
+  secret?: string,
+): Promise<string> {
+  const sessionToken = `gps_${crypto.randomUUID().replaceAll('-', '')}${crypto
+    .randomUUID()
+    .replaceAll('-', '')}`;
+  const tokenHash = await hashSessionToken(sessionToken, secret);
+  await db
+    .prepare(
+      `
+        INSERT INTO user_sessions
+          (id, user_id, session_token_hash, expires_at)
+        VALUES (?, ?, ?, datetime('now', '+30 days'))
+      `,
+    )
+    .bind(createId('session'), userId, tokenHash)
+    .run();
+  return sessionToken;
+}
+
+export async function authenticateUser(request: Request, env: Env): Promise<AuthenticatedUser | null> {
+  const token = getBearerToken(request);
+  if (!token) return null;
+
+  const tokenHash = await hashSessionToken(token, env.SESSION_TOKEN_SECRET);
+  const user = await env.DB.prepare(
+    `
+      SELECT
+        u.id,
+        u.email,
+        u.display_name,
+        u.country_code,
+        s.id AS session_id
+      FROM user_sessions s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.session_token_hash = ?
+        AND s.revoked_at IS NULL
+        AND s.expires_at > CURRENT_TIMESTAMP
+      LIMIT 1
+    `,
+  )
+    .bind(tokenHash)
+    .first<{
+      id: string;
+      email: string;
+      display_name: string;
+      country_code: string;
+      session_id: string;
+    }>();
+
+  if (!user) return null;
+
+  await env.DB.batch([
+    env.DB.prepare('UPDATE user_sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?').bind(
+      user.session_id,
+    ),
+    env.DB.prepare('UPDATE users SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?').bind(user.id),
+  ]);
+
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.display_name,
+    countryCode: user.country_code,
+  };
+}
+
+export function unauthorized(): Response {
+  return json({ error: 'Authentication required' }, 401);
+}
+
 export function tossAuthHeader(secretKey: string): string {
   return `Basic ${btoa(`${secretKey}:`)}`;
 }
@@ -175,4 +255,12 @@ function safeEqual(a: string, b: string): boolean {
     diff |= a.charCodeAt(index) ^ b.charCodeAt(index);
   }
   return diff === 0;
+}
+
+function getBearerToken(request: Request): string | null {
+  const authorization = request.headers.get('Authorization') || request.headers.get('authorization');
+  if (!authorization) return null;
+  const [scheme, token] = authorization.split(' ');
+  if (scheme?.toLowerCase() !== 'bearer' || !token) return null;
+  return token.trim();
 }

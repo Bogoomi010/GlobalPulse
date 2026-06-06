@@ -21,6 +21,7 @@
 - Configure `TOSS_CLIENT_KEY` for the Pages Functions response.
 - Configure Toss Payments secret key.
 - Configure Toss Payments webhook secret.
+- Configure `SESSION_TOKEN_SECRET` with a high-entropy production value.
 - Configure success, failure, cancel, and webhook callback URLs.
 - Confirm `/payment/success` and `/payment/fail` route to the SPA through `public/_redirects`.
 - Verify provider signatures on webhook requests.
@@ -48,6 +49,7 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 - Anonymous like/dislike persists after refresh.
 - Duplicate reactions from the same browser are prevented.
 - Login works through the real auth provider.
+- Wallet, paid comment, and payment creation APIs reject requests without a valid Bearer session token.
 - Top-up creates a pending payment through `/api/payments/create`.
 - Browser opens Toss Payments V2 Standard payment window from the selected top-up plan.
 - Toss payment success calls `/api/payments/confirm` with server-side amount verification.

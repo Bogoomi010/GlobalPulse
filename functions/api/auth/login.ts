@@ -1,4 +1,4 @@
-import { Env, badRequest, createId, json, readJson, requireString } from '../../_shared';
+import { Env, badRequest, createId, createUserSession, json, readJson, requireString } from '../../_shared';
 
 type LoginBody = {
   email?: string;
@@ -21,15 +21,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     const walletId = createId('wallet');
 
     if (existing) {
-      await env.DB.prepare(
+      await env.DB.batch([
+        env.DB.prepare(
         `
           UPDATE users
           SET display_name = ?, country_code = ?, last_seen_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `,
-      )
-        .bind(displayName, countryCode, userId)
-        .run();
+        ).bind(displayName, countryCode, userId),
+        env.DB.prepare(
+          `
+            INSERT OR IGNORE INTO wallets (id, user_id, currency_code, balance_amount)
+            VALUES (?, ?, 'KRW', 0)
+          `,
+        ).bind(walletId, userId),
+      ]);
     } else {
       await env.DB.batch([
         env.DB.prepare(
@@ -56,6 +62,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     )
       .bind(userId)
       .first<{ id: string; currency_code: string; balance_amount: number }>();
+    const sessionToken = await createUserSession(env.DB, userId, env.SESSION_TOKEN_SECRET);
 
     return json({
       user: {
@@ -63,6 +70,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
         email,
         displayName,
         countryCode,
+        sessionToken,
       },
       wallet: {
         id: wallet?.id,

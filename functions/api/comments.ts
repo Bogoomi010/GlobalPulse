@@ -1,8 +1,7 @@
-import { Env, badRequest, createId, json, readJson, requireString } from '../_shared';
+import { Env, authenticateUser, badRequest, createId, json, readJson, requireString, unauthorized } from '../_shared';
 
 type CommentBody = {
   issueId?: string;
-  userId?: string;
   content?: string;
   idempotencyKey?: string;
 };
@@ -60,9 +59,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
 
 export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   try {
+    const user = await authenticateUser(request, env);
+    if (!user) return unauthorized();
+
     const body = await readJson<CommentBody>(request);
     const issueId = requireString(body.issueId, 'issueId');
-    const userId = requireString(body.userId, 'userId');
     const content = requireString(body.content, 'content').slice(0, 500);
     const idempotencyKey = requireString(body.idempotencyKey, 'idempotencyKey');
 
@@ -87,7 +88,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
         WHERE user_id = ? AND currency_code = 'KRW'
       `,
     )
-      .bind(userId)
+      .bind(user.id)
       .first<{ id: string; balance_amount: number }>();
 
     if (!wallet) return badRequest('Wallet not found', 404);
@@ -105,7 +106,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
             (id, issue_id, user_id, content, cost_amount, currency_code, status)
           VALUES (?, ?, ?, ?, 100, 'KRW', 'visible')
         `,
-      ).bind(commentId, issueId, userId, content),
+      ).bind(commentId, issueId, user.id, content),
       env.DB.prepare(
         `
           UPDATE wallets
@@ -120,7 +121,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
             (id, user_id, wallet_id, transaction_type, amount, currency_code, status, related_issue_id, related_comment_id, idempotency_key)
           VALUES (?, ?, ?, 'comment_spend', -100, 'KRW', 'completed', ?, ?, ?)
         `,
-      ).bind(transactionId, userId, wallet.id, issueId, commentId, idempotencyKey),
+      ).bind(transactionId, user.id, wallet.id, issueId, commentId, idempotencyKey),
     ]);
 
     const nextWallet = await env.DB.prepare('SELECT balance_amount FROM wallets WHERE id = ?')
@@ -131,7 +132,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       comment: {
         id: commentId,
         issueId,
-        author: 'You',
+        author: user.displayName,
         content,
         cost: commentCost,
         currencyCode: 'KRW',
@@ -148,10 +149,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
 };
 
 export const onRequestDelete: PagesFunction<Env> = async ({ env, request }) => {
+  const user = await authenticateUser(request, env);
+  if (!user) return unauthorized();
+
   const url = new URL(request.url);
   const commentId = url.searchParams.get('commentId');
-  const userId = url.searchParams.get('userId');
-  if (!commentId || !userId) return badRequest('commentId and userId are required');
+  if (!commentId) return badRequest('commentId is required');
 
   const result = await env.DB.prepare(
     `
@@ -160,7 +163,7 @@ export const onRequestDelete: PagesFunction<Env> = async ({ env, request }) => {
       WHERE id = ? AND user_id = ?
     `,
   )
-    .bind(commentId, userId)
+    .bind(commentId, user.id)
     .run();
 
   return json({ deleted: result.meta.changes > 0 });

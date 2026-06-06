@@ -1,7 +1,16 @@
-import { Env, badRequest, createId, json, paymentProviderReady, readJson, requireString } from '../../_shared';
+import {
+  Env,
+  authenticateUser,
+  badRequest,
+  createId,
+  json,
+  paymentProviderReady,
+  readJson,
+  requireString,
+  unauthorized,
+} from '../../_shared';
 
 type CreatePaymentBody = {
-  userId?: string;
   planId?: string;
   idempotencyKey?: string;
   origin?: string;
@@ -9,8 +18,10 @@ type CreatePaymentBody = {
 
 export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   try {
+    const user = await authenticateUser(request, env);
+    if (!user) return unauthorized();
+
     const body = await readJson<CreatePaymentBody>(request);
-    const userId = requireString(body.userId, 'userId');
     const planId = requireString(body.planId, 'planId');
     const idempotencyKey = requireString(body.idempotencyKey, 'idempotencyKey');
     const origin = body.origin || new URL(request.url).origin;
@@ -23,10 +34,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       `
         SELECT id, provider_order_id, amount, currency_code, status
         FROM payments
-        WHERE idempotency_key = ?
+        WHERE idempotency_key = ? AND user_id = ?
       `,
     )
-      .bind(idempotencyKey)
+      .bind(idempotencyKey, user.id)
       .first<{
         id: string;
         provider_order_id: string;
@@ -74,7 +85,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     )
       .bind(
         paymentId,
-        userId,
+        user.id,
         plan.id,
         plan.provider_name,
         orderId,

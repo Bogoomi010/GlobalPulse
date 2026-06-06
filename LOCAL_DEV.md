@@ -33,7 +33,9 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Login returns a server session token
 - Anonymous reactions can be added and cancelled
 - Paid comments reject missing auth and insufficient balance
+- Missing issue comments do not subtract wallet balance
 - Paid comment spending subtracts 100 KRW after a local wallet top-up
+- Duplicate paid comment requests do not charge twice
 - Comment reporting keeps the comment visible with reported status
 - The author can delete their own paid comment
 - Payment creation writes a pending Toss payment

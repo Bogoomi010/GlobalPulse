@@ -84,6 +84,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       return json({ status: 'duplicate', commentId: existing.related_comment_id });
     }
 
+    const issue = await env.DB.prepare('SELECT id FROM issues WHERE id = ?')
+      .bind(issueId)
+      .first<{ id: string }>();
+
+    if (!issue) return badRequest('Issue not found', 404);
+
     const wallet = await env.DB.prepare(
       `
         SELECT id, balance_amount
@@ -102,14 +108,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     const commentId = createId('comment');
     const transactionId = createId('wtx');
 
-    await env.DB.batch([
-      env.DB.prepare(
-        `
-          INSERT INTO comments
-            (id, issue_id, user_id, content, cost_amount, currency_code, status)
-          VALUES (?, ?, ?, ?, 100, 'KRW', 'visible')
-        `,
-      ).bind(commentId, issueId, user.id, content),
+    const [walletDebit, commentWrite, transactionWrite] = await env.DB.batch([
       env.DB.prepare(
         `
           UPDATE wallets
@@ -120,12 +119,29 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       ).bind(wallet.id),
       env.DB.prepare(
         `
+          INSERT INTO comments
+            (id, issue_id, user_id, content, cost_amount, currency_code, status)
+          SELECT ?, ?, ?, ?, 100, 'KRW', 'visible'
+          WHERE changes() = 1
+        `,
+      ).bind(commentId, issueId, user.id, content),
+      env.DB.prepare(
+        `
           INSERT INTO wallet_transactions
             (id, user_id, wallet_id, transaction_type, amount, currency_code, status, related_issue_id, related_comment_id, idempotency_key)
-          VALUES (?, ?, ?, 'comment_spend', -100, 'KRW', 'completed', ?, ?, ?)
+          SELECT ?, ?, ?, 'comment_spend', -100, 'KRW', 'completed', ?, ?, ?
+          WHERE EXISTS (SELECT 1 FROM comments WHERE id = ?)
         `,
-      ).bind(transactionId, user.id, wallet.id, issueId, commentId, idempotencyKey),
+      ).bind(transactionId, user.id, wallet.id, issueId, commentId, idempotencyKey, commentId),
     ]);
+
+    const walletDebited = Number(walletDebit.meta.changes ?? 0) > 0;
+    const commentCreated = Number(commentWrite.meta.changes ?? 0) > 0;
+    const transactionCreated = Number(transactionWrite.meta.changes ?? 0) > 0;
+
+    if (!walletDebited || !commentCreated || !transactionCreated) {
+      return badRequest('Unable to process paid comment atomically', 409);
+    }
 
     const nextWallet = await env.DB.prepare('SELECT balance_amount FROM wallets WHERE id = ?')
       .bind(wallet.id)

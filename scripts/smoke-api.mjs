@@ -188,18 +188,64 @@ try {
     `UPDATE wallets SET balance_amount = 200 WHERE user_id = '${login.body.user.id}'`,
   ]);
 
+  const invalidIssueComment = await jsonRequest(baseUrl, '/api/comments', {
+    method: 'POST',
+    headers: auth,
+    body: JSON.stringify({
+      issueId: 'missing-issue',
+      content: 'Missing issue should not charge',
+      idempotencyKey: randomUUID(),
+    }),
+  });
+  assert(invalidIssueComment.response.status === 404, 'Missing issue comment should be rejected');
+
+  const walletAfterInvalidIssue = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
+    headers: auth,
+  });
+  assert(walletAfterInvalidIssue.response.ok, 'Wallet request after missing issue comment failed');
+  assert(
+    walletAfterInvalidIssue.body.wallet.balance === 200,
+    'Missing issue comment should not subtract wallet balance',
+  );
+
+  const paidCommentKey = randomUUID();
   const paidComment = await jsonRequest(baseUrl, '/api/comments', {
     method: 'POST',
     headers: auth,
     body: JSON.stringify({
       issueId: 'issue-001',
       content: 'Smoke test paid comment',
-      idempotencyKey: randomUUID(),
+      idempotencyKey: paidCommentKey,
     }),
   });
   assert(paidComment.response.ok, 'Paid comment failed after wallet top-up');
   assert(paidComment.body.wallet.balance === 100, 'Paid comment should subtract 100 KRW');
   assert(paidComment.body.comment.userId === login.body.user.id, 'Paid comment should include author userId');
+
+  const duplicatePaidComment = await jsonRequest(baseUrl, '/api/comments', {
+    method: 'POST',
+    headers: auth,
+    body: JSON.stringify({
+      issueId: 'issue-001',
+      content: 'Smoke test duplicate paid comment',
+      idempotencyKey: paidCommentKey,
+    }),
+  });
+  assert(duplicatePaidComment.response.ok, 'Duplicate paid comment request failed');
+  assert(duplicatePaidComment.body.status === 'duplicate', 'Duplicate paid comment should be idempotent');
+  assert(
+    duplicatePaidComment.body.commentId === paidComment.body.comment.id,
+    'Duplicate paid comment should return the original comment id',
+  );
+
+  const walletAfterDuplicateComment = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
+    headers: auth,
+  });
+  assert(walletAfterDuplicateComment.response.ok, 'Wallet request after duplicate comment failed');
+  assert(
+    walletAfterDuplicateComment.body.wallet.balance === 100,
+    'Duplicate paid comment should not subtract wallet balance again',
+  );
 
   const report = await jsonRequest(baseUrl, '/api/comment-reports', {
     method: 'POST',

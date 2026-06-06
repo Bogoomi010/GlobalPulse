@@ -36,7 +36,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Email OTP request and verification return a server session token
 - Current session lookup works and logout revokes the server session
 - Local email log delivery is explicitly enabled only for the smoke runtime
-- Anonymous reactions can be added and cancelled
+- Anonymous reactions can be added, switched, cancelled, and reflected in issue aggregates
 - Paid comments reject missing auth and insufficient balance
 - Missing issue comments do not subtract wallet balance
 - Paid comment spending subtracts 100 KRW after a local wallet top-up

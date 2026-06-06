@@ -24,6 +24,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Comment reports are idempotent per anonymous session to reduce moderation queue spam
 - Token-protected moderation API and ops screen list reported comments and record hide/restore/dismiss review actions
 - Local full-stack smoke test runs Pages Functions with local D1 through Wrangler, verifies OTP login with local-only email log delivery, and exercises Toss confirm/refund webhook flows plus webhook signature enforcement through a local provider mock
+- API smoke coverage verifies anonymous reaction add, switch, cancel, and `/api/issues` aggregate persistence
 - Production deploy gate blocks deployment when D1, Toss live payment secrets, moderation admin token, fixed payment callback origin, or verified email auth settings are missing
 - Production D1 migration script shares the local migration list and requires an explicit confirmation value before applying remote migrations
 - Production URL verification script checks the public app, D1 issue seed count, protected API behavior, payment return routes, moderation protection, and optional Resend OTP delivery
@@ -45,6 +46,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Frontend creates an anonymous local token and uses optimistic state.
    - Done: Server hashes session token and stores one reaction per session per issue in D1.
    - Done: Toggle, cancel, and switch semantics are implemented in `/api/reactions`.
+   - Done: Smoke tests verify reaction count persistence through `/api/issues`.
 
 4. Authentication and wallet
    - Done: `/api/auth/login` creates user and wallet records on first login.

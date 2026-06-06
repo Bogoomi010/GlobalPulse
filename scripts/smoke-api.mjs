@@ -223,6 +223,8 @@ try {
   const issues = await jsonRequest(baseUrl, '/api/issues');
   assert(issues.response.ok, 'GET /api/issues failed');
   assert(issues.body.issues.length === 20, 'Expected 20 seeded issues');
+  const reactionIssue = issues.body.issues.find((issue) => issue.id === 'issue-001');
+  assert(reactionIssue, 'Expected issue-001 in seeded issues');
 
   const walletWithoutAuth = await jsonRequest(baseUrl, '/api/wallet');
   assert(walletWithoutAuth.response.status === 401, 'Wallet API must reject missing session');
@@ -266,13 +268,48 @@ try {
   });
   assert(like.response.ok, 'Like reaction failed');
   assert(like.body.currentReaction === 'like', 'Like reaction was not stored');
+  assert(like.body.likes === reactionIssue.likes + 1, 'Like should increment issue like count');
+  assert(like.body.dislikes === reactionIssue.dislikes, 'Like should not change issue dislike count');
 
-  const unlike = await jsonRequest(baseUrl, '/api/reactions', {
+  const issuesAfterLike = await jsonRequest(baseUrl, '/api/issues');
+  assert(issuesAfterLike.response.ok, 'Issue list after like failed');
+  const issueAfterLike = issuesAfterLike.body.issues.find((issue) => issue.id === 'issue-001');
+  assert(issueAfterLike, 'Expected issue-001 after like');
+  assert(issueAfterLike.likes === reactionIssue.likes + 1, 'Like should persist in issue aggregate');
+
+  const switchToDislike = await jsonRequest(baseUrl, '/api/reactions', {
     method: 'POST',
-    body: JSON.stringify({ anonymousToken, issueId: 'issue-001', reactionType: 'like' }),
+    body: JSON.stringify({ anonymousToken, issueId: 'issue-001', reactionType: 'dislike' }),
   });
-  assert(unlike.response.ok, 'Reaction cancel failed');
-  assert(unlike.body.currentReaction === null, 'Repeated like should cancel reaction');
+  assert(switchToDislike.response.ok, 'Reaction switch to dislike failed');
+  assert(switchToDislike.body.currentReaction === 'dislike', 'Reaction should switch to dislike');
+  assert(switchToDislike.body.likes === reactionIssue.likes, 'Switch should remove previous like');
+  assert(
+    switchToDislike.body.dislikes === reactionIssue.dislikes + 1,
+    'Switch should increment dislike count',
+  );
+
+  const issuesAfterSwitch = await jsonRequest(baseUrl, '/api/issues');
+  assert(issuesAfterSwitch.response.ok, 'Issue list after reaction switch failed');
+  const issueAfterSwitch = issuesAfterSwitch.body.issues.find((issue) => issue.id === 'issue-001');
+  assert(issueAfterSwitch, 'Expected issue-001 after reaction switch');
+  assert(issueAfterSwitch.likes === reactionIssue.likes, 'Reaction switch should persist removed like');
+  assert(
+    issueAfterSwitch.dislikes === reactionIssue.dislikes + 1,
+    'Reaction switch should persist added dislike',
+  );
+
+  const cancelDislike = await jsonRequest(baseUrl, '/api/reactions', {
+    method: 'POST',
+    body: JSON.stringify({ anonymousToken, issueId: 'issue-001', reactionType: 'dislike' }),
+  });
+  assert(cancelDislike.response.ok, 'Reaction cancel failed');
+  assert(cancelDislike.body.currentReaction === null, 'Repeated dislike should cancel reaction');
+  assert(cancelDislike.body.likes === reactionIssue.likes, 'Cancel should restore original like count');
+  assert(
+    cancelDislike.body.dislikes === reactionIssue.dislikes,
+    'Cancel should restore original dislike count',
+  );
 
   const commentWithoutAuth = await jsonRequest(baseUrl, '/api/comments', {
     method: 'POST',

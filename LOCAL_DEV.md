@@ -19,6 +19,7 @@ yarn pages:dev
 Open `http://127.0.0.1:8788`.
 
 `pages:dev` uses local placeholder Toss keys and `MODERATION_ADMIN_TOKEN=local-dev-moderation-token`. Replace the bindings with real Toss test keys before manually testing the payment window.
+Open the `Ops` navigation item and enter `local-dev-moderation-token` to inspect the local moderation queue after reporting a paid comment.
 
 Local Pages dev also sets `ALLOW_DEMO_LOGIN=true` so `/api/auth/login` can issue a test session without sending email. The API smoke test uses `AUTH_PROVIDER=resend` plus `AUTH_EMAIL_DELIVERY=log` to verify the OTP endpoints without sending real email. It also points `TOSS_API_BASE_URL` at a local Toss mock so payment confirm and cancellation webhook handling can be tested without live keys. Production must use Resend delivery and the official Toss API instead.
 
@@ -43,6 +44,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Comment reporting keeps the comment visible with reported status
 - Duplicate reports from the same anonymous session do not create extra report rows
 - Moderation reports require an admin token and can hide or restore a reported comment
+- The frontend ops screen accepts an operator-provided moderation token for queue review
 - The author can delete their own paid comment
 - Payment creation writes a pending Toss payment
 - Payment confirmation through the provider adapter increases wallet balance once

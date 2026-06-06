@@ -7,10 +7,12 @@ import {
   CircleDollarSign,
   Clock3,
   CreditCard,
+  EyeOff,
   Flame,
   Globe2,
   LogIn,
   MessageCircle,
+  RotateCcw,
   Search,
   ShieldAlert,
   ThumbsDown,
@@ -24,7 +26,9 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 type Category = 'World' | 'Tech' | 'Business' | 'Culture' | 'Science' | 'Sports' | 'Internet';
 type SortKey = 'Hot' | 'New' | 'Most Liked' | 'Most Disliked' | 'Most Divided' | 'Most Commented';
 type Reaction = 'like' | 'dislike';
-type View = 'feed' | 'wallet' | 'about' | 'policy';
+type View = 'feed' | 'wallet' | 'about' | 'policy' | 'moderation';
+type ModerationStatus = 'open' | 'reviewed' | 'all';
+type ModerationAction = 'hide' | 'restore' | 'dismiss';
 
 type Source = {
   name: string;
@@ -55,7 +59,7 @@ type Comment = {
   content: string;
   cost: number;
   createdAt: string;
-  status: 'visible' | 'deleted' | 'reported';
+  status: 'visible' | 'hidden' | 'deleted' | 'reported';
 };
 
 type SessionUser = {
@@ -84,6 +88,28 @@ type PaymentPlan = {
   label: string;
   provider: string;
   providerPriceId?: string | null;
+};
+
+type ModerationReport = {
+  commentId: string;
+  issueId: string;
+  issueTitle: string;
+  content: string;
+  commentStatus: Comment['status'];
+  commentCreatedAt: string;
+  author: {
+    name: string;
+    email: string;
+  };
+  review: {
+    action: ModerationAction;
+    note: string | null;
+    reviewedAt: string | null;
+  } | null;
+  reportCount: number;
+  openReportCount: number;
+  firstReportedAt: string;
+  lastReportedAt: string;
 };
 
 type PaymentReturn =
@@ -588,6 +614,9 @@ const requestJson = async <T,>(url: string, init?: RequestInit): Promise<T | nul
 const authHeaders = (user: SessionUser | null): HeadersInit =>
   user?.sessionToken ? { Authorization: `Bearer ${user.sessionToken}` } : {};
 
+const moderationHeaders = (token: string): HeadersInit =>
+  token ? { Authorization: `Bearer ${token}` } : {};
+
 const parsePaymentReturn = (): PaymentReturn | null => {
   const url = new URL(window.location.href);
   if (url.pathname === '/payment/success') {
@@ -672,6 +701,11 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'blocked' | 'pending' | 'success' | 'failed'>('idle');
   const [paymentReturn, setPaymentReturn] = useState<PaymentReturn | null>(parsePaymentReturn);
+  const [moderationToken, setModerationToken] = useState(() => localStorage.getItem('globalpulse:moderation-token') ?? '');
+  const [moderationStatus, setModerationStatus] = useState<ModerationStatus>('open');
+  const [moderationReports, setModerationReports] = useState<ModerationReport[]>([]);
+  const [moderationBusy, setModerationBusy] = useState(false);
+  const [moderationMessage, setModerationMessage] = useState('');
 
   const activeIssue = issues.find((issue) => issue.id === activeIssueId) ?? null;
   const activeSessionToken = user?.sessionToken;
@@ -756,6 +790,30 @@ export default function App() {
       cancelled = true;
     };
   }, [activeIssueId]);
+
+  useEffect(() => {
+    if (view !== 'moderation' || !moderationToken) return;
+    let cancelled = false;
+    setModerationBusy(true);
+    setModerationMessage('');
+    void requestJson<{ reports: ModerationReport[] }>(
+      `/api/moderation/reports?status=${encodeURIComponent(moderationStatus)}`,
+      { headers: moderationHeaders(moderationToken) },
+    ).then((data) => {
+      if (cancelled) return;
+      setModerationBusy(false);
+      if (!data) {
+        setModerationReports([]);
+        setModerationMessage('운영 토큰이 맞지 않거나 모더레이션 API가 아직 연결되지 않았습니다.');
+        return;
+      }
+      setApiOnline(true);
+      setModerationReports(data.reports);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [moderationStatus, moderationToken, view]);
 
   useEffect(() => {
     if (!paymentReturn) return;
@@ -1214,8 +1272,80 @@ export default function App() {
     });
   };
 
+  const handleModerationToken = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const token = String(form.get('moderationToken') ?? '').trim();
+    if (!token) return;
+    setModerationToken(token);
+    localStorage.setItem('globalpulse:moderation-token', token);
+    setModerationStatus('open');
+    setModerationMessage('');
+  };
+
+  const clearModerationToken = () => {
+    setModerationToken('');
+    setModerationReports([]);
+    setModerationMessage('');
+    localStorage.removeItem('globalpulse:moderation-token');
+  };
+
+  const handleModerationAction = (action: ModerationAction, report: ModerationReport) => {
+    if (!moderationToken) return;
+    setModerationBusy(true);
+    setModerationMessage('');
+    void requestJson<{
+      commentId: string;
+      action: ModerationAction;
+      commentStatus: Comment['status'];
+    }>('/api/moderation/reports', {
+      method: 'PATCH',
+      headers: moderationHeaders(moderationToken),
+      body: JSON.stringify({
+        action,
+        commentId: report.commentId,
+        note: `Reviewed in GlobalPulse ops panel`,
+      }),
+    }).then((data) => {
+      setModerationBusy(false);
+      if (!data) {
+        setModerationMessage('검토 액션을 저장하지 못했습니다.');
+        return;
+      }
+      setApiOnline(true);
+      const nextStatus = data.commentStatus;
+      setComments((currentComments) => {
+        const nextComments = currentComments.map((comment) =>
+          comment.id === data.commentId ? { ...comment, status: nextStatus } : comment,
+        );
+        writeJson('globalpulse:comments', nextComments);
+        return nextComments;
+      });
+      setModerationReports((currentReports) =>
+        currentReports
+          .map((item) =>
+            item.commentId === data.commentId
+              ? {
+                  ...item,
+                  commentStatus: nextStatus,
+                  openReportCount: 0,
+                  review: {
+                    action: data.action,
+                    note: 'Reviewed in GlobalPulse ops panel',
+                    reviewedAt: new Date().toISOString(),
+                  },
+                }
+              : item,
+          )
+          .filter((item) => moderationStatus !== 'open' || item.commentId !== data.commentId),
+      );
+      setModerationMessage(`${report.issueTitle} 댓글 검토가 저장되었습니다.`);
+    });
+  };
+
   const visibleComments = comments.filter(
-    (comment) => comment.issueId === activeIssueId && comment.status !== 'deleted',
+    (comment) =>
+      comment.issueId === activeIssueId && comment.status !== 'deleted' && comment.status !== 'hidden',
   );
 
   return (
@@ -1237,6 +1367,10 @@ export default function App() {
             </button>
             <button className="nav-pill hidden sm:inline-flex" onClick={() => setView('policy')}>
               Policy
+            </button>
+            <button className="nav-pill hidden md:inline-flex" onClick={() => setView('moderation')}>
+              <ShieldAlert className="h-4 w-4" />
+              Ops
             </button>
             <button className="nav-pill" onClick={() => setView('wallet')}>
               <Wallet className="h-4 w-4" />
@@ -1367,6 +1501,19 @@ export default function App() {
 
         {!paymentReturn && view === 'about' ? <InfoPage type="about" /> : null}
         {!paymentReturn && view === 'policy' ? <InfoPage type="policy" /> : null}
+        {!paymentReturn && view === 'moderation' ? (
+          <ModerationView
+            busy={moderationBusy}
+            message={moderationMessage}
+            onAction={handleModerationAction}
+            onClearToken={clearModerationToken}
+            onStatusChange={setModerationStatus}
+            onTokenSubmit={handleModerationToken}
+            reports={moderationReports}
+            status={moderationStatus}
+            tokenConfigured={Boolean(moderationToken)}
+          />
+        ) : null}
       </main>
 
       {activeIssue ? (
@@ -1859,6 +2006,167 @@ function PaymentResultView({
         지갑으로 돌아가기
       </button>
     </section>
+  );
+}
+
+function ModerationView({
+  tokenConfigured,
+  reports,
+  status,
+  busy,
+  message,
+  onTokenSubmit,
+  onClearToken,
+  onStatusChange,
+  onAction,
+}: {
+  tokenConfigured: boolean;
+  reports: ModerationReport[];
+  status: ModerationStatus;
+  busy: boolean;
+  message: string;
+  onTokenSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onClearToken: () => void;
+  onStatusChange: (status: ModerationStatus) => void;
+  onAction: (action: ModerationAction, report: ModerationReport) => void;
+}) {
+  const openCount = reports.reduce((sum, report) => sum + report.openReportCount, 0);
+
+  return (
+    <section className="grid gap-4 lg:grid-cols-[340px_1fr]">
+      <aside className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+        <div className="mb-4 flex items-center gap-2 text-amber-100">
+          <ShieldAlert className="h-6 w-6" />
+          <h1 className="text-2xl font-black">Moderation ops</h1>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Metric label="Reports" value={reports.length.toString()} />
+          <Metric label="Open" value={openCount.toString()} />
+        </div>
+        {tokenConfigured ? (
+          <button className="mt-4 w-full rounded-2xl border border-white/10 px-4 py-3 text-sm font-black text-slate-300 transition hover:border-rose-300/40 hover:text-rose-100" onClick={onClearToken}>
+            Forget token
+          </button>
+        ) : (
+          <form className="mt-4" onSubmit={onTokenSubmit}>
+            <label className="form-label">
+              Admin token
+              <input
+                className="form-input"
+                name="moderationToken"
+                placeholder="MODERATION_ADMIN_TOKEN"
+                required
+                type="password"
+              />
+            </label>
+            <button className="primary-button w-full" type="submit">
+              Open queue
+            </button>
+          </form>
+        )}
+        {message ? (
+          <p className="mt-4 rounded-2xl border border-cyan-300/30 bg-cyan-300/10 p-3 text-sm leading-6 text-cyan-100">
+            {message}
+          </p>
+        ) : null}
+      </aside>
+
+      <div className="grid gap-4">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="no-scrollbar flex gap-2 overflow-x-auto">
+            {(['open', 'reviewed', 'all'] as const).map((item) => (
+              <button
+                className={`sort-tab ${status === item ? 'sort-tab-active' : ''}`}
+                disabled={!tokenConfigured || busy}
+                key={item}
+                onClick={() => onStatusChange(item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3">
+          {reports.map((report) => (
+            <ModerationReportCard
+              busy={busy}
+              key={report.commentId}
+              onAction={onAction}
+              report={report}
+            />
+          ))}
+          {tokenConfigured && !busy && !reports.length ? (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">
+              이 필터에 해당하는 신고 댓글이 없습니다.
+            </div>
+          ) : null}
+          {tokenConfigured && busy ? (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">
+              모더레이션 큐를 불러오는 중입니다.
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ModerationReportCard({
+  report,
+  busy,
+  onAction,
+}: {
+  report: ModerationReport;
+  busy: boolean;
+  onAction: (action: ModerationAction, report: ModerationReport) => void;
+}) {
+  const isHidden = report.commentStatus === 'hidden';
+  const isVisible = report.commentStatus === 'visible';
+
+  return (
+    <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="badge border-amber-300/30 bg-amber-300/10 text-amber-100">
+          {report.openReportCount} open / {report.reportCount} total
+        </span>
+        <span className="badge">{report.commentStatus}</span>
+        {report.review ? <span className="badge">reviewed: {report.review.action}</span> : null}
+      </div>
+      <h2 className="text-lg font-black leading-snug">{report.issueTitle}</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-300">{report.content}</p>
+      <div className="mt-3 grid gap-1 text-xs text-slate-500">
+        <p>{report.author.name} · {report.author.email}</p>
+        <p>Reported {new Date(report.lastReportedAt).toLocaleString('ko-KR')}</p>
+        {report.review?.reviewedAt ? <p>Reviewed {new Date(report.review.reviewedAt).toLocaleString('ko-KR')}</p> : null}
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          className="reaction-button border-rose-300/30 text-rose-100"
+          disabled={busy || isHidden}
+          onClick={() => onAction('hide', report)}
+        >
+          <EyeOff className="h-4 w-4" />
+          Hide
+        </button>
+        <button
+          className="reaction-button border-emerald-300/30 text-emerald-100"
+          disabled={busy || isVisible}
+          onClick={() => onAction('restore', report)}
+        >
+          <RotateCcw className="h-4 w-4" />
+          Restore
+        </button>
+        <button
+          className="reaction-button"
+          disabled={busy}
+          onClick={() => onAction('dismiss', report)}
+        >
+          <CheckCircle2 className="h-4 w-4" />
+          Dismiss
+        </button>
+      </div>
+    </article>
   );
 }
 

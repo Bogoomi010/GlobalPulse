@@ -83,6 +83,7 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 - Paid comment subtracts 100 KRW and appears in the comment list.
 - Duplicate comment reports from the same anonymous session are idempotent.
 - `/api/moderation/reports` rejects missing admin tokens, lists reported comments, and can hide or restore a reviewed comment.
+- The browser ops screen can connect with `MODERATION_ADMIN_TOKEN` and perform the same hide/restore review flow.
 - Transaction history persists after refresh.
 - Mobile and desktop layouts remain usable.
 

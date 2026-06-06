@@ -14,6 +14,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Like/dislike optimistic UI with D1 API support and localStorage fallback
 - Issue detail modal with sources, reaction split, comments, and moderation notes
 - Login, wallet, top-up plan, transaction history, about, and policy screens
+- Browser-based moderation ops screen for reviewing reported paid comments with an admin token
 - Transaction history shows readable labels, payment statuses, and refund/comment/top-up transaction types
 - Cloudflare Pages Functions for issues, anonymous reactions, login, wallet, paid comments, reports, and Toss payment create/confirm/webhook
 - D1 migrations for schema, payment plans, and dummy issue seed data
@@ -21,7 +22,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Stored sessions can be checked through `/api/auth/me` and revoked through `/api/auth/logout`
 - Email OTP login endpoints are prepared for production through Resend, with demo login allowed only by explicit local binding
 - Comment reports are idempotent per anonymous session to reduce moderation queue spam
-- Token-protected moderation API lists reported comments and records hide/restore/dismiss review actions
+- Token-protected moderation API and ops screen list reported comments and record hide/restore/dismiss review actions
 - Local full-stack smoke test runs Pages Functions with local D1 through Wrangler, verifies OTP login with local-only email log delivery, and exercises Toss confirm/refund webhook flows through a local provider mock
 - Production deploy gate blocks deployment when D1, Toss live payment secrets, moderation admin token, or verified email auth settings are missing
 - Payment blocked state when provider environment variables are missing
@@ -55,6 +56,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Idempotency key prevents duplicate charge/comment writes.
    - Done: Comment reports are unique per comment and anonymous reporter session.
    - Done: `/api/moderation/reports` lets token-authenticated operators list reports and hide, restore, or dismiss reported comments.
+   - Done: The frontend ops screen can connect with `MODERATION_ADMIN_TOKEN` and review reported comments without exposing the token in deployment env.
 
 6. Payments
    - Done: Toss create/confirm/fail/webhook endpoints are implemented.

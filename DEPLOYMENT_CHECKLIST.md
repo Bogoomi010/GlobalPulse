@@ -4,6 +4,7 @@
 
 - Run `yarn lint`.
 - Run `yarn build`.
+- Run `yarn test:api`.
 - Verify mobile and desktop layouts.
 
 ## D1

@@ -17,6 +17,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Cloudflare Pages Functions for issues, anonymous reactions, login, wallet, paid comments, reports, and Toss payment create/confirm/webhook
 - D1 migrations for schema, payment plans, and dummy issue seed data
 - Server-issued session tokens protect wallet, paid comment, and payment creation APIs
+- Local full-stack smoke test runs Pages Functions with local D1 through Wrangler
 - Payment blocked state when provider environment variables are missing
 
 ## Milestones
@@ -56,6 +57,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 7. Deployment
    - Add Cloudflare Pages/Workers or equivalent server runtime.
    - Apply D1 migrations and bind the production database.
+   - Run `yarn test:api` before deployment to verify local D1/API behavior.
    - Stop before production deployment if payment secrets are missing.
 
 ## Required Environment Variables

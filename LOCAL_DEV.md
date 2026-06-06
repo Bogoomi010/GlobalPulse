@@ -1,0 +1,37 @@
+# GlobalPulse Local Full-Stack Development
+
+## Run The Vite UI
+
+```bash
+yarn dev
+```
+
+This serves the frontend only. API calls fall back to local demo state when Pages Functions are not available.
+
+## Run Pages Functions With Local D1
+
+```bash
+yarn build
+yarn db:migrate:local
+yarn pages:dev
+```
+
+Open `http://127.0.0.1:8788`.
+
+`pages:dev` uses local placeholder Toss keys. Replace the bindings with real Toss test keys before manually testing the payment window.
+
+## API Smoke Test
+
+```bash
+yarn test:api
+```
+
+The smoke test builds the app, applies D1 migrations to an isolated Wrangler state directory, starts `wrangler pages dev`, and verifies:
+
+- D1 seeded issues are returned
+- Wallet API rejects unauthenticated requests
+- Login returns a server session token
+- Anonymous reactions can be added and cancelled
+- Paid comments reject missing auth and insufficient balance
+- Paid comment spending subtracts 100 KRW after a local wallet top-up
+- Payment creation writes a pending Toss payment

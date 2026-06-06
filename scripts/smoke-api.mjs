@@ -361,7 +361,8 @@ try {
         transaction.type === 'topup' &&
         transaction.status === 'cancelled' &&
         transaction.amount === payment.body.amount &&
-        transaction.label === `payment:${payment.body.paymentId}:cancelled`,
+        transaction.label === 'Wallet top-up cancelled' &&
+        transaction.reference === `payment:${payment.body.paymentId}:cancelled`,
     ),
     'Cancelled payment should appear in wallet transaction history',
   );

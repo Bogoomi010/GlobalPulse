@@ -14,6 +14,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Like/dislike optimistic UI with D1 API support and localStorage fallback
 - Issue detail modal with sources, reaction split, comments, and moderation notes
 - Login, wallet, top-up plan, transaction history, about, and policy screens
+- Transaction history shows readable labels, payment statuses, and refund/comment/top-up transaction types
 - Cloudflare Pages Functions for issues, anonymous reactions, login, wallet, paid comments, reports, and Toss payment create/confirm/webhook
 - D1 migrations for schema, payment plans, and dummy issue seed data
 - Server-issued session tokens protect wallet, paid comment, and payment creation APIs

@@ -68,7 +68,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
       amount: Number(transaction.amount),
       currencyCode: transaction.currency_code,
       status: transaction.status,
-      label: transaction.idempotency_key,
+      label: formatTransactionLabel(transaction.transaction_type, transaction.status),
+      reference: transaction.idempotency_key,
       createdAt: transaction.created_at,
     })),
     plans: (plans.results ?? []).map((plan) => ({
@@ -82,3 +83,20 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
     })),
   });
 };
+
+function formatTransactionLabel(type: string, status: string): string {
+  if (type === 'topup') {
+    if (status === 'completed') return 'Wallet top-up completed';
+    if (status === 'cancelled') return 'Wallet top-up cancelled';
+    if (status === 'failed') return 'Wallet top-up failed';
+    return 'Wallet top-up pending';
+  }
+
+  if (type === 'comment_spend') return 'Paid comment';
+  if (type === 'refund') {
+    if (status === 'pending') return 'Refund pending balance recovery';
+    return 'Payment refund';
+  }
+  if (type === 'adjustment') return 'Wallet adjustment';
+  return 'Wallet transaction';
+}

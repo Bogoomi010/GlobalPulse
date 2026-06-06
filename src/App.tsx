@@ -68,10 +68,11 @@ type SessionUser = {
 
 type WalletTransaction = {
   id: string;
-  type: 'topup' | 'comment_spend' | 'failed_payment';
+  type: 'topup' | 'comment_spend' | 'refund' | 'adjustment' | 'failed_payment';
   amount: number;
   status: 'pending' | 'completed' | 'failed' | 'cancelled';
   label: string;
+  reference?: string;
   createdAt: string;
 };
 
@@ -482,6 +483,46 @@ const formatCount = (value: number) => {
 };
 
 const formatWon = (value: number) => `${value.toLocaleString('ko-KR')}원`;
+
+const transactionTypeLabel: Record<WalletTransaction['type'], string> = {
+  topup: 'Top-up',
+  comment_spend: 'Comment',
+  refund: 'Refund',
+  adjustment: 'Adjust',
+  failed_payment: 'Payment',
+};
+
+const transactionStatusLabel: Record<WalletTransaction['status'], string> = {
+  pending: 'Pending',
+  completed: 'Completed',
+  failed: 'Failed',
+  cancelled: 'Cancelled',
+};
+
+const getTransactionTone = (transaction: WalletTransaction) => {
+  if (transaction.status === 'failed' || transaction.status === 'cancelled') {
+    return {
+      amountClass: 'text-slate-400',
+      badgeClass: 'border-slate-500/30 bg-slate-500/10 text-slate-300',
+    };
+  }
+  if (transaction.status === 'pending') {
+    return {
+      amountClass: 'text-amber-200',
+      badgeClass: 'border-amber-300/30 bg-amber-300/10 text-amber-100',
+    };
+  }
+  if (transaction.amount >= 0) {
+    return {
+      amountClass: 'text-emerald-200',
+      badgeClass: 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100',
+    };
+  }
+  return {
+    amountClass: 'text-rose-200',
+    badgeClass: 'border-rose-300/30 bg-rose-300/10 text-rose-100',
+  };
+};
 
 const getReactionStats = (issue: Issue) => {
   const total = issue.likes + issue.dislikes;
@@ -1676,19 +1717,35 @@ function WalletView({
           </div>
           <div className="grid gap-2">
             {transactions.map((tx) => (
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#070A12] p-3" key={tx.id}>
-                <div>
-                  <p className="font-bold">{tx.label}</p>
-                  <p className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleString('ko-KR')}</p>
-                </div>
-                <span className={tx.amount >= 0 ? 'font-black text-emerald-200' : 'font-black text-rose-200'}>{formatWon(tx.amount)}</span>
-              </div>
+              <TransactionRow key={tx.id} tx={tx} />
             ))}
             {!transactions.length ? <p className="text-sm text-slate-500">거래 내역이 없습니다.</p> : null}
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function TransactionRow({ tx }: { tx: WalletTransaction }) {
+  const tone = getTransactionTone(tx);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#070A12] p-3">
+      <div className="min-w-0">
+        <div className="mb-1 flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            {transactionTypeLabel[tx.type]}
+          </span>
+          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.14em] ${tone.badgeClass}`}>
+            {transactionStatusLabel[tx.status]}
+          </span>
+        </div>
+        <p className="break-words font-bold">{tx.label}</p>
+        <p className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleString('ko-KR')}</p>
+        {tx.reference ? <p className="mt-1 break-all text-[11px] text-slate-600">{tx.reference}</p> : null}
+      </div>
+      <span className={`ml-auto font-black ${tone.amountClass}`}>{formatWon(tx.amount)}</span>
+    </div>
   );
 }
 

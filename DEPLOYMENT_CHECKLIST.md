@@ -17,6 +17,7 @@
 - Apply `migrations/0003_issues_seed.sql`.
 - Apply `migrations/0004_user_sessions.sql`.
 - Apply `migrations/0005_email_login_codes.sql`.
+- Apply `migrations/0006_comment_report_uniqueness.sql`.
 - Seed production dummy issues and issue sources.
 - Bind the D1 database to the server runtime.
 
@@ -77,6 +78,7 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 - Repeated failure/cancellation callbacks do not create duplicate transaction history rows.
 - Toss `CANCELED` or `PARTIAL_CANCELED` webhook after a paid top-up records a refund transaction and adjusts wallet balance when sufficient balance remains.
 - Paid comment subtracts 100 KRW and appears in the comment list.
+- Duplicate comment reports from the same anonymous session are idempotent.
 - Transaction history persists after refresh.
 - Mobile and desktop layouts remain usable.
 

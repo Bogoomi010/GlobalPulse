@@ -30,11 +30,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       env.SESSION_TOKEN_SECRET,
     );
 
+    const existingReport = await env.DB.prepare(
+      `
+        SELECT id
+        FROM comment_reports
+        WHERE comment_id = ? AND reporter_session_id = ?
+      `,
+    )
+      .bind(commentId, reporterSessionId)
+      .first<{ id: string }>();
+
+    if (existingReport) {
+      return json({ reportId: existingReport.id, status: 'duplicate' });
+    }
+
     const reportId = createId('report');
     await env.DB.batch([
       env.DB.prepare(
         `
-          INSERT INTO comment_reports
+          INSERT OR IGNORE INTO comment_reports
             (id, comment_id, reporter_session_id, reason)
           VALUES (?, ?, ?, ?)
         `,

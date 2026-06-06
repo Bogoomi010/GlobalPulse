@@ -20,6 +20,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Server-issued session tokens protect wallet, paid comment, and payment creation APIs
 - Stored sessions can be checked through `/api/auth/me` and revoked through `/api/auth/logout`
 - Email OTP login endpoints are prepared for production through Resend, with demo login allowed only by explicit local binding
+- Comment reports are idempotent per anonymous session to reduce moderation queue spam
 - Local full-stack smoke test runs Pages Functions with local D1 through Wrangler, verifies OTP login with local-only email log delivery, and exercises Toss confirm/refund webhook flows through a local provider mock
 - Production deploy gate blocks deployment when D1, Toss live payment secrets, or verified email auth settings are missing
 - Payment blocked state when provider environment variables are missing
@@ -51,6 +52,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 5. Paid comments
    - Done: `/api/comments` inserts a comment, subtracts 100 KRW, and inserts a wallet transaction in one D1 batch.
    - Done: Idempotency key prevents duplicate charge/comment writes.
+   - Done: Comment reports are unique per comment and anonymous reporter session.
 
 6. Payments
    - Done: Toss create/confirm/fail/webhook endpoints are implemented.

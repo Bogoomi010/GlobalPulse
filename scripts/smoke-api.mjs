@@ -341,16 +341,32 @@ try {
     'Duplicate paid comment should not subtract wallet balance again',
   );
 
+  const reportToken = randomUUID();
   const report = await jsonRequest(baseUrl, '/api/comment-reports', {
     method: 'POST',
     body: JSON.stringify({
       commentId: paidComment.body.comment.id,
-      anonymousToken: randomUUID(),
+      anonymousToken: reportToken,
       reason: 'policy_review',
     }),
   });
   assert(report.response.ok, 'Comment report failed');
   assert(report.body.status === 'received', 'Comment report should be accepted');
+
+  const duplicateReport = await jsonRequest(baseUrl, '/api/comment-reports', {
+    method: 'POST',
+    body: JSON.stringify({
+      commentId: paidComment.body.comment.id,
+      anonymousToken: reportToken,
+      reason: 'policy_review',
+    }),
+  });
+  assert(duplicateReport.response.ok, 'Duplicate comment report failed');
+  assert(duplicateReport.body.status === 'duplicate', 'Duplicate report should be idempotent');
+  assert(
+    duplicateReport.body.reportId === report.body.reportId,
+    'Duplicate report should return the original report id',
+  );
 
   const commentsAfterReport = await jsonRequest(
     baseUrl,

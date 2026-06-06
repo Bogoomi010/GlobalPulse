@@ -41,6 +41,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Paid comment spending subtracts 100 KRW after a local wallet top-up
 - Duplicate paid comment requests do not charge twice
 - Comment reporting keeps the comment visible with reported status
+- Duplicate reports from the same anonymous session do not create extra report rows
 - The author can delete their own paid comment
 - Payment creation writes a pending Toss payment
 - Payment confirmation through the provider adapter increases wallet balance once

@@ -50,6 +50,7 @@ type Issue = {
 type Comment = {
   id: string;
   issueId: string;
+  userId?: string;
   author: string;
   content: string;
   cost: number;
@@ -980,6 +981,7 @@ export default function App() {
     const comment: Comment = {
       id: crypto.randomUUID(),
       issueId,
+      userId: user.id ?? user.email,
       author: user.displayName,
       content,
       cost: commentCost,
@@ -1006,6 +1008,52 @@ export default function App() {
     persistIssues(nextIssues);
     persistTransactions([tx, ...transactions]);
     event.currentTarget.reset();
+  };
+
+  const handleReportComment = (commentId: string) => {
+    void requestJson<{ reportId: string; status: 'received' }>('/api/comment-reports', {
+      method: 'POST',
+      body: JSON.stringify({
+        commentId,
+        anonymousToken,
+        reason: 'policy_review',
+      }),
+    }).then((data) => {
+      if (!data) return;
+      setApiOnline(true);
+      const nextComments = comments.map((comment) =>
+        comment.id === commentId ? { ...comment, status: 'reported' as const } : comment,
+      );
+      persistComments(nextComments);
+    });
+  };
+
+  const handleDeleteComment = (commentId: string, issueId: string) => {
+    const removeCommentLocally = () => {
+      const nextComments = comments.filter((comment) => comment.id !== commentId);
+      const nextIssues = issues.map((issue) =>
+        issue.id === issueId ? { ...issue, comments: Math.max(0, issue.comments - 1) } : issue,
+      );
+      persistComments(nextComments);
+      persistIssues(nextIssues);
+    };
+
+    if (!user?.sessionToken) {
+      removeCommentLocally();
+      return;
+    }
+
+    void requestJson<{ deleted: boolean }>(
+      `/api/comments?commentId=${encodeURIComponent(commentId)}`,
+      {
+        method: 'DELETE',
+        headers: authHeaders(user),
+      },
+    ).then((data) => {
+      if (!data?.deleted) return;
+      setApiOnline(true);
+      removeCommentLocally();
+    });
   };
 
   const visibleComments = comments.filter(
@@ -1170,8 +1218,10 @@ export default function App() {
           issue={activeIssue}
           onClose={() => setActiveIssueId(null)}
           onComment={handleComment}
+          onDeleteComment={handleDeleteComment}
           onLogin={() => setAuthOpen(true)}
           onReact={handleReaction}
+          onReportComment={handleReportComment}
           reaction={reactions[activeIssue.id]}
           user={user}
         />
@@ -1302,7 +1352,9 @@ function IssueModal({
   onClose,
   onReact,
   onComment,
+  onDeleteComment,
   onLogin,
+  onReportComment,
 }: {
   issue: Issue;
   reaction?: Reaction;
@@ -1312,7 +1364,9 @@ function IssueModal({
   onClose: () => void;
   onReact: (issueId: string, reaction: Reaction) => void;
   onComment: (event: FormEvent<HTMLFormElement>, issueId: string) => void;
+  onDeleteComment: (commentId: string, issueId: string) => void;
   onLogin: () => void;
+  onReportComment: (commentId: string) => void;
 }) {
   const stats = getReactionStats(issue);
   const canComment = Boolean(user && balance >= commentCost);
@@ -1394,11 +1448,34 @@ function IssueModal({
               {comments.map((comment) => (
                 <div className="rounded-2xl border border-white/10 bg-[#070A12] p-3" key={comment.id}>
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className="font-bold">{comment.author}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold">{comment.author}</span>
+                      {comment.status === 'reported' ? (
+                        <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[11px] font-bold text-amber-100">
+                          Reported
+                        </span>
+                      ) : null}
+                    </div>
                     <span className="text-xs text-slate-500">{formatWon(comment.cost)} spent</span>
                   </div>
                   <p className="text-sm leading-6 text-slate-300">{comment.content}</p>
-                  <button className="mt-2 text-xs font-bold text-amber-200">Report</button>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    <button
+                      className="text-xs font-bold text-amber-200 disabled:text-slate-600"
+                      disabled={comment.status === 'reported'}
+                      onClick={() => onReportComment(comment.id)}
+                    >
+                      {comment.status === 'reported' ? 'Reported' : 'Report'}
+                    </button>
+                    {user && comment.userId && comment.userId === (user.id ?? user.email) ? (
+                      <button
+                        className="text-xs font-bold text-rose-200"
+                        onClick={() => onDeleteComment(comment.id, comment.issueId)}
+                      >
+                        Delete
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ))}
               {!comments.length ? <p className="text-sm text-slate-500">아직 댓글이 없습니다.</p> : null}

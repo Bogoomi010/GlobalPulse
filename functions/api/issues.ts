@@ -29,7 +29,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         ) AS dislike_count,
         i.seed_comment_count + (
           SELECT COUNT(*) FROM comments c
-          WHERE c.issue_id = i.id AND c.status = 'visible'
+          WHERE c.issue_id = i.id AND c.status IN ('visible', 'reported')
         ) AS comment_count
       FROM issues i
       ORDER BY i.hot_score DESC, i.created_at DESC

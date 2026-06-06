@@ -199,6 +199,51 @@ try {
   });
   assert(paidComment.response.ok, 'Paid comment failed after wallet top-up');
   assert(paidComment.body.wallet.balance === 100, 'Paid comment should subtract 100 KRW');
+  assert(paidComment.body.comment.userId === login.body.user.id, 'Paid comment should include author userId');
+
+  const report = await jsonRequest(baseUrl, '/api/comment-reports', {
+    method: 'POST',
+    body: JSON.stringify({
+      commentId: paidComment.body.comment.id,
+      anonymousToken: randomUUID(),
+      reason: 'policy_review',
+    }),
+  });
+  assert(report.response.ok, 'Comment report failed');
+  assert(report.body.status === 'received', 'Comment report should be accepted');
+
+  const commentsAfterReport = await jsonRequest(
+    baseUrl,
+    `/api/comments?issueId=${paidComment.body.comment.issueId}`,
+  );
+  assert(commentsAfterReport.response.ok, 'Comment list after report failed');
+  assert(
+    commentsAfterReport.body.comments.some(
+      (comment) => comment.id === paidComment.body.comment.id && comment.status === 'reported',
+    ),
+    'Reported comment should stay visible with reported status',
+  );
+
+  const deleteComment = await jsonRequest(
+    baseUrl,
+    `/api/comments?commentId=${paidComment.body.comment.id}`,
+    {
+      method: 'DELETE',
+      headers: auth,
+    },
+  );
+  assert(deleteComment.response.ok, 'Comment delete request failed');
+  assert(deleteComment.body.deleted === true, 'Own comment should be deleted');
+
+  const commentsAfterDelete = await jsonRequest(
+    baseUrl,
+    `/api/comments?issueId=${paidComment.body.comment.issueId}`,
+  );
+  assert(commentsAfterDelete.response.ok, 'Comment list after delete failed');
+  assert(
+    !commentsAfterDelete.body.comments.some((comment) => comment.id === paidComment.body.comment.id),
+    'Deleted comment should not be returned',
+  );
 
   const payment = await jsonRequest(baseUrl, '/api/payments/create', {
     method: 'POST',

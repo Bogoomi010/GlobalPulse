@@ -12,6 +12,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     const commentId = requireString(body.commentId, 'commentId');
     const anonymousToken = requireString(body.anonymousToken, 'anonymousToken');
     const reason = requireString(body.reason || 'policy_review', 'reason').slice(0, 120);
+    const comment = await env.DB.prepare(
+      `
+        SELECT id
+        FROM comments
+        WHERE id = ? AND status IN ('visible', 'reported')
+      `,
+    )
+      .bind(commentId)
+      .first<{ id: string }>();
+
+    if (!comment) return badRequest('Comment not found', 404);
+
     const reporterSessionId = await ensureAnonymousSession(
       env.DB,
       anonymousToken,

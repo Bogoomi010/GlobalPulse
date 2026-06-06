@@ -18,6 +18,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
       SELECT
         c.id,
         c.issue_id,
+        c.user_id,
         c.content,
         c.cost_amount,
         c.currency_code,
@@ -26,7 +27,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
         u.display_name
       FROM comments c
       JOIN users u ON u.id = c.user_id
-      WHERE c.issue_id = ? AND c.status != 'deleted'
+      WHERE c.issue_id = ? AND c.status IN ('visible', 'reported')
       ORDER BY c.created_at DESC
       LIMIT 100
     `,
@@ -35,6 +36,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
     .all<{
       id: string;
       issue_id: string;
+      user_id: string;
       content: string;
       cost_amount: number;
       currency_code: string;
@@ -47,6 +49,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
     comments: (result.results ?? []).map((comment) => ({
       id: comment.id,
       issueId: comment.issue_id,
+      userId: comment.user_id,
       author: comment.display_name,
       content: comment.content,
       cost: Number(comment.cost_amount),
@@ -132,6 +135,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
       comment: {
         id: commentId,
         issueId,
+        userId: user.id,
         author: user.displayName,
         content,
         cost: commentCost,

@@ -72,6 +72,20 @@ CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... yarn audit:cloudflare-secrets
 
 The audit reads the Cloudflare Pages project configuration and fails if any Stripe, Toss, or `PAYMENT_PROVIDER` variable names remain.
 
+To preview cleanup without changing Cloudflare settings:
+
+```bash
+CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... yarn cleanup:cloudflare-secrets
+```
+
+To remove the legacy payment variables through the API, use a Cloudflare API token with Pages Write access and an explicit confirmation value:
+
+```bash
+CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... CONFIRM_CLOUDFLARE_LEGACY_SECRET_DELETE=globalpulse-pages yarn cleanup:cloudflare-secrets --apply
+```
+
+The cleanup command deletes only the forbidden legacy payment variable names by setting them to `null`; it does not print or modify required production secret values.
+
 ## Phase 2: Resend Email Readiness
 
 In Resend:

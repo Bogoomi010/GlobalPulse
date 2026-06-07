@@ -40,6 +40,7 @@ Use `OPERATOR_RUNBOOK.md` for the ordered Cloudflare, Resend, verification, and 
 - Set `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` only after the launch review is complete.
 - Remove old payment provider variables and secrets: `PAYMENT_PROVIDER`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`, and `VITE_TOSS_CLIENT_KEY`.
 - Optional read-only check: `CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... yarn audit:cloudflare-secrets` fails if the Cloudflare Pages project still contains old payment variable names.
+- Optional API cleanup after operator approval: `CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... CONFIRM_CLOUDFLARE_LEGACY_SECRET_DELETE=globalpulse-pages yarn cleanup:cloudflare-secrets --apply` removes only the forbidden legacy payment variable names.
 - Confirm `/api/admin/status` reports `Legacy payment secrets 0` through the Ops screen or `yarn admin:status`.
 
 ## Required Deployment Variables

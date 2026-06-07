@@ -18,6 +18,7 @@
     "verify:production": "node scripts/verify-production.mjs",
     "launch:review": "node scripts/launch-review-report.mjs",
     "audit:cloudflare-secrets": "node scripts/audit-cloudflare-pages-secrets.mjs",
+    "cleanup:cloudflare-secrets": "node scripts/cleanup-cloudflare-pages-secrets.mjs",
     "admin:status": "node scripts/admin-runtime.mjs status",
     "admin:ready": "node scripts/admin-runtime.mjs ready",
     "admin:refresh-issues": "node scripts/admin-runtime.mjs refresh-issues",

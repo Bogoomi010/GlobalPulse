@@ -108,3 +108,5 @@ PRODUCTION_ADMIN_TOKEN=... PRODUCTION_VERIFY_EMAIL=operator@example.com PRODUCTI
 These commands call the protected admin APIs without printing the token. `admin:ready` exits nonzero and lists missing runtime items when the deployment is not launch-ready. `admin:refresh-issues` refreshes public issues and then prints the updated runtime status. `admin:test-email` requests a production OTP email, and `admin:verify-email` verifies the 6-digit code, checks the issued session, and logs it out without printing the session token.
 
 Use `yarn audit:cloudflare-secrets` with `CLOUDFLARE_ACCOUNT_ID` and a read-only `CLOUDFLARE_API_TOKEN` to check Cloudflare Pages variable names without printing secret values. The command fails while old Stripe, Toss, or `PAYMENT_PROVIDER` entries remain.
+
+Use `yarn cleanup:cloudflare-secrets` to preview which legacy payment variable names would be removed. Add `--apply` only with a Pages Write token and `CONFIRM_CLOUDFLARE_LEGACY_SECRET_DELETE=globalpulse-pages`; the command sets only those forbidden names to `null`.

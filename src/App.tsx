@@ -1479,7 +1479,7 @@ export default function App() {
                   <Metric label="Comments" value={formatCount(issues.reduce((sum, issue) => sum + issue.comments, 0))} />
                 </div>
                 <p className="mt-5 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">
-                  결제 설정이 완료되기 전까지 실제 충전은 차단됩니다. 카드번호 등 민감한 결제 정보는 저장하지 않습니다.
+                  Stripe 테스트 결제는 결제 제공자 페이지에서 처리되며, 카드번호 등 민감한 결제 정보는 저장하지 않습니다.
                 </p>
                 <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-xs leading-5 text-slate-400">
                   Data mode: {apiOnline ? 'D1 API connected' : 'local fallback'}

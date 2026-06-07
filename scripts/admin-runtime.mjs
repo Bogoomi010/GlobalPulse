@@ -167,6 +167,7 @@ function printStatus(status) {
   const lines = [
     'Runtime status:',
     `- D1 issues: ${status.d1?.issueCount ?? 'unknown'}`,
+    `- D1 schema tables: ${formatBoolean(status.d1?.requiredTablesPresent)}`,
     `- Auth provider: ${status.auth?.provider || 'not configured'}`,
     `- Resend configured: ${formatBoolean(status.auth?.resendConfigured)}`,
     `- Email sender configured: ${formatBoolean(status.auth?.emailFromConfigured)}`,
@@ -224,6 +225,10 @@ function readinessFailures(status) {
   }
   if (Number(status?.d1?.issueCount ?? 0) < 20) {
     failures.push('D1 issue count must be at least 20.');
+  }
+  if (!status?.d1?.requiredTablesPresent) {
+    const missing = Array.isArray(status?.d1?.missingTables) ? status.d1.missingTables.join(', ') : 'unknown';
+    failures.push(`D1 required tables are missing: ${missing}.`);
   }
   if (Number(status?.payments?.activePlanCount ?? 0) !== 0) {
     failures.push('Active payment plans must be disabled.');

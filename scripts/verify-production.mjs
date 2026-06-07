@@ -118,6 +118,9 @@ if (adminToken) {
     if (!body.auth?.emailFromConfigured) throw new Error('AUTH_EMAIL_FROM is not configured');
     if (body.auth?.logDeliveryEnabled) throw new Error('AUTH_EMAIL_DELIVERY=log must not be enabled');
     if (Number(body.d1?.issueCount ?? 0) < 20) throw new Error('D1 issue count must be at least 20');
+    if (!body.d1?.requiredTablesPresent) {
+      throw new Error(`D1 required tables are missing: ${(body.d1?.missingTables ?? []).join(', ')}`);
+    }
     if (Number(body.payments?.activePlanCount ?? 0) !== 0) {
       throw new Error('Active payment plans must be disabled');
     }

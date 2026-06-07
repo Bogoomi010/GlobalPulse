@@ -115,6 +115,9 @@ type RuntimeStatus = {
   };
   d1: {
     issueCount: number;
+    missingTables: string[];
+    requiredTableCount: number;
+    requiredTablesPresent: boolean;
   };
   payments: {
     activePlanCount: number;
@@ -1633,6 +1636,7 @@ function OpsRuntimeStatus({
       !runtimeStatus.config.demoLoginEnabled,
   );
   const d1Ready = Boolean(runtimeStatus && runtimeStatus.d1.issueCount >= 20);
+  const d1SchemaReady = Boolean(runtimeStatus?.d1.requiredTablesPresent);
   const paymentsDisabled = Boolean(runtimeStatus && runtimeStatus.payments.activePlanCount === 0);
   const launchReady = Boolean(runtimeStatus?.config.launchReviewAcknowledged);
 
@@ -1648,6 +1652,7 @@ function OpsRuntimeStatus({
       {runtimeStatus ? (
         <div className="mt-3 grid gap-2">
           <OpsStatusLine label={`D1 issues ${runtimeStatus.d1.issueCount}`} ok={d1Ready} />
+          <OpsStatusLine label={`D1 schema tables ${runtimeStatus.d1.requiredTableCount}`} ok={d1SchemaReady} />
           <OpsStatusLine label="Resend email login" ok={emailReady} />
           <OpsStatusLine label="Runtime secrets" ok={runtimeReady} />
           <OpsStatusLine label="Payments disabled" ok={paymentsDisabled} />

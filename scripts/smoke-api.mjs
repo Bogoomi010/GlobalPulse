@@ -336,6 +336,8 @@ try {
   });
   assert(adminStatus.response.ok, 'Admin status request failed');
   assert(adminStatus.body.d1.issueCount === 20, 'Admin status should report seeded issue count');
+  assert(adminStatus.body.d1.requiredTablesPresent === true, 'Admin status should confirm required D1 tables');
+  assert(adminStatus.body.d1.missingTables.length === 0, 'Admin status should not report missing D1 tables');
   assert(adminStatus.body.payments.activePlanCount === 0, 'Admin status should confirm disabled payment plans');
   assert(adminStatus.body.auth.provider === 'resend', 'Admin status should report resend auth provider');
   assert(adminStatus.body.auth.logDeliveryEnabled === true, 'Smoke admin status should report local log delivery');

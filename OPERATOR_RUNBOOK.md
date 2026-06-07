@@ -6,6 +6,7 @@ Do not paste API keys, admin tokens, OTP codes, session tokens, or secret values
 
 For the current modified launch scope, verified public evidence, and remaining operator gates, see `GOAL_STATUS.md`.
 Run `yarn goal:status` for a non-secret summary of unfinished launch checklist items.
+Use `OPERATOR_POLICIES.md` as a draft policy template while completing the privacy, moderation, security, content, and jurisdiction reviews.
 
 ## Production Target
 
@@ -196,6 +197,7 @@ Expected evidence:
 ## Phase 7: Launch Review And ACK
 
 Complete every section in `LAUNCH_REVIEW.md`.
+Use `OPERATOR_POLICIES.md` to record the operator-reviewed privacy, moderation, security, content, and jurisdiction decisions before acknowledging launch readiness.
 
 Only after the review is complete, set:
 

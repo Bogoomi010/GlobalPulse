@@ -39,6 +39,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Public-copy audit checks that visible UI copy does not mention removed payment-provider, checkout, top-up, or paid-comment flows
 - Launch review report script prints non-secret public and protected runtime evidence for operator review
 - Operator runbook documents the ordered Cloudflare, Resend, verification, and launch acknowledgement procedure
+- Draft operator policy templates document data handling, moderation, escalation, security, content, and jurisdiction review inputs for the launch review
 - Production admin CLI can check runtime state, refresh public issues, and verify production email OTP login without exposing admin tokens or session tokens
 - `GOAL_STATUS.md` summarizes the current modified scope, production URL, verified public evidence, and remaining operator-controlled launch gates
 

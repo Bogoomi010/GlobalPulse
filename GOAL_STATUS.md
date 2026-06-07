@@ -49,7 +49,7 @@ Do not describe the service as production-ready until the remaining operator-con
 - Token-protected issue refresh from Wikimedia Current Events, Hacker News, and GDELT.
 - Token-protected runtime status and readiness checks.
 - Disabled payment endpoints and migration-disabled payment plans.
-- Operator runbook, deployment checklist, launch review checklist, public launch report, production verifier, public-copy audit, and Cloudflare legacy secret audit/cleanup scripts.
+- Operator runbook, draft operator policy templates, deployment checklist, launch review checklist, public launch report, production verifier, public-copy audit, and Cloudflare legacy secret audit/cleanup scripts.
 - `yarn goal:status` summarizes incomplete launch review gates without requiring or printing secrets.
 
 ## Remaining Launch Gates

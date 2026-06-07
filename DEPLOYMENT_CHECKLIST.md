@@ -9,6 +9,7 @@ Use `yarn goal:status` to print unfinished launch checklist items without exposi
 - Run `yarn lint`.
 - Run `yarn build`.
 - Run `yarn test:api`.
+- Run `yarn audit:public-copy`.
 - Run `yarn check:deploy`.
 - Run `yarn db:migrate:production:dry-run`.
 - After deployment, run `APP_PUBLIC_ORIGIN=https://your-production-domain yarn launch:review`.

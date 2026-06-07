@@ -104,6 +104,7 @@ Do not continue to launch acknowledgement until production OTP email delivery is
 Run:
 
 ```bash
+yarn audit:public-copy
 APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review
 APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production
 ```
@@ -118,6 +119,7 @@ Expected evidence:
 
 - Public app loads.
 - `/api/issues` returns at least 20 issues.
+- Public UI copy avoids removed payment-provider, checkout, top-up, and paid-comment wording.
 - Anonymous reaction smoke can like an issue, switch to dislike, cancel the reaction, restore baseline counts, and observe persisted aggregates through `/api/issues`.
 - Comment list loads publicly for an issue, and comment creation rejects missing signed-in sessions.
 - Protected APIs reject missing tokens.

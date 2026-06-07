@@ -1,6 +1,6 @@
 # GlobalPulse Goal Status
 
-Generated: 2026-06-07T05:53:15Z
+Generated: 2026-06-07T05:57:33Z
 
 ## Active Scope
 
@@ -20,12 +20,13 @@ Do not describe the service as production-ready until the remaining operator-con
 
 ## Verified Evidence
 
-- `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` passed public checks on 2026-06-07T05:53:15Z.
+- `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` passed public checks on 2026-06-07T05:57:33Z.
 - `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production` passed public production verification on the latest checked state.
 - Public app loads at the production URL.
 - `/api/issues` returns 20 D1-backed issues.
 - Public anonymous reaction smoke verifies like, switch to dislike, cancel, baseline count restoration, and `/api/issues` aggregate persistence.
 - Public comment list loads for an issue, while comment creation rejects requests without a signed-in session.
+- `yarn audit:public-copy` confirms public UI copy does not use removed payment-provider, checkout, top-up, or paid-comment wording.
 - Protected wallet, moderation, issue-refresh, and admin-status APIs reject unauthenticated requests.
 - `/api/payments/create`, `/api/payments/confirm`, `/api/payments/fail`, and `/api/payments/webhook` return `410 Gone`.
 - Mobile and desktop layouts have recorded evidence in `LAUNCH_REVIEW.md`.
@@ -43,7 +44,7 @@ Do not describe the service as production-ready until the remaining operator-con
 - Token-protected issue refresh from Wikimedia Current Events, Hacker News, and GDELT.
 - Token-protected runtime status and readiness checks.
 - Disabled payment endpoints and migration-disabled payment plans.
-- Operator runbook, deployment checklist, launch review checklist, public launch report, production verifier, and Cloudflare legacy secret audit/cleanup scripts.
+- Operator runbook, deployment checklist, launch review checklist, public launch report, production verifier, public-copy audit, and Cloudflare legacy secret audit/cleanup scripts.
 - `yarn goal:status` summarizes incomplete launch review gates without requiring or printing secrets.
 
 ## Remaining Launch Gates

@@ -32,6 +32,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Production URL verification script checks the public app, D1 issue count, protected API behavior, disabled payment API behavior, moderation and live-refresh protection, and optional Resend OTP delivery
 - Production URL verification script also checks anonymous reaction like, switch, cancel, baseline count restoration, and `/api/issues` aggregate persistence
 - Production URL verification script checks public comment listing and rejects unauthenticated comment writes
+- Public-copy audit checks that visible UI copy does not mention removed payment-provider, checkout, top-up, or paid-comment flows
 - Launch review report script prints non-secret public and protected runtime evidence for operator review
 - Operator runbook documents the ordered Cloudflare, Resend, verification, and launch acknowledgement procedure
 - Production admin CLI can check runtime state, refresh public issues, and verify production email OTP login without exposing admin tokens or session tokens
@@ -86,6 +87,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: `yarn launch:review` prints a non-secret launch review report for public and optional protected runtime evidence.
    - Done: Public launch verification checks anonymous reaction persistence by liking, switching, cancelling, restoring baseline counts, and reading `/api/issues` aggregates.
    - Done: Public launch verification checks comment list loading and unauthenticated comment write rejection.
+   - Done: `yarn audit:public-copy` checks that visible UI copy avoids removed payment-provider and paid-comment wording.
    - Done: `yarn admin:status`, `yarn admin:ready`, `yarn admin:refresh-issues`, `yarn admin:test-email`, and `yarn admin:verify-email` support protected production operations when an operator token is supplied.
    - Done: Public production verification confirms the deployed app loads and `/api/issues` returns 20 D1-backed issues.
    - Remaining: Confirm protected D1 schema/runtime status with the production admin token.

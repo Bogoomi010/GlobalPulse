@@ -28,6 +28,7 @@ Complete the Pre-ACK items before setting `LAUNCH_REVIEW_ACK`. Complete the Post
 - [x] `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production` passes.
 - [x] Public verification confirms anonymous reaction like, switch, cancel, baseline count restoration, and persisted `/api/issues` aggregates.
 - [x] Public verification confirms issue comments can be listed and unauthenticated comment creation is rejected.
+- [x] `yarn audit:public-copy` confirms public UI copy avoids removed payment-provider, checkout, top-up, and paid-comment wording.
 - [ ] `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn admin:status` reports D1 schema ready, Resend configured, HTTPS public origin match, demo login disabled, active payment plans `0`, legacy payment secrets `none`, and launch review status not yet acknowledged.
 - [ ] `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review` includes protected runtime evidence without printing the admin token.
 - [ ] `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn admin:refresh-issues` refreshes public issues or reports no new items without exposing the token.
@@ -40,9 +41,10 @@ Complete the Pre-ACK items before setting `LAUNCH_REVIEW_ACK`. Complete the Post
 ### Current Evidence Snapshot
 
 ```text
-Timestamp: 2026-06-07T05:53:15Z
+Timestamp: 2026-06-07T05:57:33Z
 Public launch review: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md
 Public production verification: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production, including anonymous reaction like/switch/cancel baseline restoration and unauthenticated comment write rejection
+Public copy audit: PASS via yarn audit:public-copy
 Public browser smoke: PASS for feed render, search, category filter, sort tabs, detail modal, anonymous reaction toggle, mobile 390px layout, and desktop 1440px layout
 Production responsive smoke: PASS for feed, issue details, login, comments, policy, and ops at 390x844 mobile and 1440x900 desktop with no horizontal overflow
 Last Cloudflare dashboard observation: BLOCKED; legacy payment secret names still present: PAYMENT_PROVIDER, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, TOSS_CLIENT_KEY, TOSS_SECRET_KEY, TOSS_WEBHOOK_SECRET, VITE_TOSS_CLIENT_KEY

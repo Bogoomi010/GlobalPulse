@@ -1105,7 +1105,7 @@ export default function App() {
                   <Metric label="Comments" value={formatCount(issues.reduce((sum, issue) => sum + issue.comments, 0))} />
                 </div>
                 <p className="mt-5 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">
-                  결제 기능은 제거되었습니다. 로그인 사용자는 별도 충전 없이 무료로 댓글을 작성할 수 있습니다.
+                  로그인 사용자는 무료로 댓글을 작성할 수 있습니다. 댓글은 반응 데이터와 별도로 표시됩니다.
                 </p>
                 <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-xs leading-5 text-slate-400">
                   Data mode: {apiOnline ? 'D1 API connected' : 'local fallback'}
@@ -1835,7 +1835,7 @@ function InfoPage({ type }: { type: 'about' | 'policy' }) {
     <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
       <div className="mb-4 flex items-center gap-2 text-cyan-200">
         {isAbout ? <BarChart3 className="h-6 w-6" /> : <CheckCircle2 className="h-6 w-6" />}
-        <h1 className="text-3xl font-black">{isAbout ? 'About GlobalPulse' : 'Operations and refund policy'}</h1>
+        <h1 className="text-3xl font-black">{isAbout ? 'About GlobalPulse' : 'Operations and community policy'}</h1>
       </div>
       {isAbout ? (
         <div className="grid gap-4 text-sm leading-6 text-slate-300">
@@ -1846,8 +1846,8 @@ function InfoPage({ type }: { type: 'about' | 'policy' }) {
       ) : (
         <div className="grid gap-4 text-sm leading-6 text-slate-300">
           <p>개인정보 처리, 댓글 모더레이션, 신고 대응은 실제 운영 전 운영자가 정책과 절차를 확인해야 합니다.</p>
-          <p>Payments are disabled. GlobalPulse does not provide wallet top-ups, paid comments, checkout, Stripe, Toss, or refunds for paid balances.</p>
-          <p>GlobalPulse는 카드번호 등 민감한 결제 정보를 수집하거나 저장하지 않습니다.</p>
+          <p>댓글은 로그인한 사용자가 무료로 작성하며, 댓글 내용은 사실성이나 신뢰도를 보증하지 않습니다.</p>
+          <p>GlobalPulse는 서비스 운영에 필요한 계정, 세션, 익명 반응, 신고 정보를 최소한으로 다룹니다.</p>
           <p>댓글은 운영 검토 대상이 될 수 있으며, 신고된 댓글은 숨김, 복원, 기각 처리될 수 있습니다.</p>
         </div>
       )}

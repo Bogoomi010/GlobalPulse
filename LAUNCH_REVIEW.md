@@ -50,7 +50,7 @@ Public production verification: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-p
 Public copy audit: PASS via yarn audit:public-copy and deployed HTML/JS/CSS verification
 Public browser smoke: PASS for feed render, search, category filter, sort tabs, detail modal, anonymous reaction toggle, mobile 390px layout, and desktop 1440px layout
 Production responsive smoke: PASS for feed, issue details, login, comments, policy, and ops at 390x844 mobile and 1440x900 desktop with no horizontal overflow
-Last Cloudflare dashboard observation: BLOCKED; legacy payment secret names still present: PAYMENT_PROVIDER, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, TOSS_CLIENT_KEY, TOSS_SECRET_KEY, TOSS_WEBHOOK_SECRET, VITE_TOSS_CLIENT_KEY
+Last Cloudflare dashboard observation: BLOCKED at 2026-06-07T06:16:18Z; required variable names are visible, but legacy payment variable names are still present: PAYMENT_PROVIDER, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, TOSS_CLIENT_KEY, TOSS_SECRET_KEY, TOSS_WEBHOOK_SECRET, VITE_TOSS_CLIENT_KEY
 Protected runtime evidence: PENDING; requires production admin token
 Production email OTP evidence: PENDING; requires operator mailbox OTP flow
 Launch ACK evidence: PENDING; set only after all review sections are complete

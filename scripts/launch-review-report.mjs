@@ -44,6 +44,14 @@ await record('Issue source links are present', async () => {
   return `${sourceCount} source links across ${body.issues.length} issues`;
 });
 
+await record('Issue wording avoids verdict claims', async () => {
+  const { body, response } = await fetchJson('/api/issues');
+  if (!response.ok) throw new Error(`Expected 200, got ${response.status}`);
+  if (!Array.isArray(body?.issues)) throw new Error('issues must be an array');
+  validateNeutralIssueWording(body.issues);
+  return `${body.issues.length} issue texts checked`;
+});
+
 await record('Anonymous reaction toggle persists', runAnonymousReactionSmoke);
 
 await record('Wallet API rejects missing session', async () => {
@@ -481,6 +489,36 @@ function validateIssueSources(issues) {
     }
   }
   return sourceCount;
+}
+
+function validateNeutralIssueWording(issues) {
+  const forbiddenPatterns = [
+    /\bconfirmed fact\b/i,
+    /\bfact[-\s]?checked as true\b/i,
+    /\bfact[-\s]?checked as false\b/i,
+    /\bproven true\b/i,
+    /\bproven false\b/i,
+    /\btruth verdict\b/i,
+    /\bthe truth is\b/i,
+    /거짓으로 확정/,
+    /사실로 확정/,
+    /정답입니다/,
+    /진실입니다/,
+    /진실 판정 결과/,
+    /허위로 확정/,
+  ];
+
+  for (const issue of issues) {
+    const issueId = issue.id || 'unknown';
+    for (const field of ['title', 'summary', 'detail']) {
+      const value = String(issue[field] || '');
+      for (const pattern of forbiddenPatterns) {
+        if (pattern.test(value)) {
+          throw new Error(`Issue ${issueId} ${field} includes verdict-like wording: ${pattern}`);
+        }
+      }
+    }
+  }
 }
 
 function normalizeOrigin(value) {

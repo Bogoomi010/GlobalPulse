@@ -90,6 +90,8 @@ The verifier checks the public app shell, D1 issue API count, protected API beha
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:status
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:ready
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:refresh-issues
+PRODUCTION_ADMIN_TOKEN=... PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:test-email
+PRODUCTION_ADMIN_TOKEN=... PRODUCTION_VERIFY_EMAIL=operator@example.com PRODUCTION_VERIFY_EMAIL_CODE=123456 APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:verify-email
 ```
 
-These commands call the protected admin APIs without printing the token. `admin:ready` exits nonzero and lists missing runtime items when the deployment is not launch-ready. `admin:refresh-issues` refreshes public issues and then prints the updated runtime status.
+These commands call the protected admin APIs without printing the token. `admin:ready` exits nonzero and lists missing runtime items when the deployment is not launch-ready. `admin:refresh-issues` refreshes public issues and then prints the updated runtime status. `admin:test-email` requests a production OTP email, and `admin:verify-email` verifies the 6-digit code, checks the issued session, and logs it out without printing the session token.

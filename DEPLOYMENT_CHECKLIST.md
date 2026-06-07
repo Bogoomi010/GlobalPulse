@@ -60,6 +60,8 @@ GlobalPulse does not use Stripe, Toss, or other payment provider secrets. If old
 - `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:status` reports runtime readiness without exposing secrets.
 - `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:ready` passes after runtime settings and launch review are complete.
 - `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:refresh-issues` refreshes public issues when needed.
+- `PRODUCTION_ADMIN_TOKEN=... PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:test-email` requests a production OTP.
+- `PRODUCTION_ADMIN_TOKEN=... PRODUCTION_VERIFY_EMAIL=operator@example.com PRODUCTION_VERIFY_EMAIL_CODE=123456 APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:verify-email` verifies the received OTP, session lookup, and logout.
 - `PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production` sends a Resend OTP without returning `devCode`.
 - `/api/issues` returns at least 20 issues from D1.
 - `/api/payments/create`, `/api/payments/confirm`, and `/api/payments/webhook` return `410 Gone`.

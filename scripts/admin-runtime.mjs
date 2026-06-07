@@ -3,6 +3,8 @@ import { URL } from 'node:url';
 const command = process.argv[2] || 'status';
 const target = process.argv.find((arg) => arg.startsWith('http')) || process.env.APP_PUBLIC_ORIGIN || '';
 const adminToken = process.env.PRODUCTION_ADMIN_TOKEN || process.env.MODERATION_ADMIN_TOKEN || '';
+const verificationEmail = process.env.PRODUCTION_VERIFY_EMAIL || '';
+const verificationCode = process.env.PRODUCTION_VERIFY_EMAIL_CODE || '';
 
 if (!target) {
   throw new Error('Set APP_PUBLIC_ORIGIN or pass a production URL.');
@@ -39,8 +41,52 @@ if (command === 'status') {
   );
   const status = await adminJson('/api/admin/status');
   printStatus(status);
+} else if (command === 'test-email') {
+  await assertEmailRuntimeConfigured();
+  const result = await publicJson('/api/auth/request-code', {
+    body: JSON.stringify({
+      countryCode: 'KR',
+      displayName: 'GlobalPulse Verify',
+      email: requireVerificationEmail(),
+    }),
+    method: 'POST',
+  });
+  if (result?.status !== 'code_sent') {
+    throw new Error(`Expected code_sent, got ${result?.status || 'unknown'}.`);
+  }
+  if (result && typeof result === 'object' && 'devCode' in result) {
+    throw new Error('Production email response must not include devCode.');
+  }
+  console.log(`Verification email requested for ${verificationEmail}.`);
+} else if (command === 'verify-email') {
+  await assertEmailRuntimeConfigured();
+  const result = await publicJson('/api/auth/verify-code', {
+    body: JSON.stringify({
+      code: requireVerificationCode(),
+      email: requireVerificationEmail(),
+    }),
+    method: 'POST',
+  });
+  const sessionToken = result?.user?.sessionToken;
+  if (!sessionToken) {
+    throw new Error('Email code verification did not return a session token.');
+  }
+  const currentUser = await publicJson('/api/auth/me', {
+    headers: { Authorization: `Bearer ${sessionToken}` },
+  });
+  if (currentUser?.user?.email !== verificationEmail.toLowerCase()) {
+    throw new Error('Current session user does not match the verification email.');
+  }
+  const logout = await publicJson('/api/auth/logout', {
+    headers: { Authorization: `Bearer ${sessionToken}` },
+    method: 'POST',
+  });
+  if (logout?.revoked !== true) {
+    throw new Error('Verified session was not revoked by logout.');
+  }
+  console.log(`Email OTP login verified for ${verificationEmail}.`);
 } else {
-  throw new Error('Command must be "status", "ready", or "refresh-issues".');
+  throw new Error('Command must be "status", "ready", "refresh-issues", "test-email", or "verify-email".');
 }
 
 function normalizeOrigin(value) {
@@ -76,6 +122,46 @@ async function adminJson(pathname, init = {}) {
   return body;
 }
 
+async function publicJson(pathname, init = {}) {
+  const response = await fetch(new URL(pathname, origin), {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers || {}),
+    },
+  });
+  const text = await response.text();
+  let body = null;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = text;
+    }
+  }
+  if (!response.ok) {
+    const detail = body && typeof body === 'object' && 'error' in body ? body.error : text;
+    throw new Error(`${pathname} failed with ${response.status}: ${detail}`);
+  }
+  return body;
+}
+
+async function assertEmailRuntimeConfigured() {
+  const status = await adminJson('/api/admin/status');
+  if (status?.auth?.provider !== 'resend') {
+    throw new Error(`AUTH_PROVIDER must be resend; current value is ${status?.auth?.provider || 'not configured'}.`);
+  }
+  if (!status?.auth?.resendConfigured) {
+    throw new Error('RESEND_API_KEY is not configured.');
+  }
+  if (!status?.auth?.emailFromConfigured) {
+    throw new Error('AUTH_EMAIL_FROM is not configured.');
+  }
+  if (status?.auth?.logDeliveryEnabled) {
+    throw new Error('AUTH_EMAIL_DELIVERY=log must not be enabled in production.');
+  }
+}
+
 function printStatus(status) {
   const failures = readinessFailures(status);
   const lines = [
@@ -93,6 +179,20 @@ function printStatus(status) {
     `- Runtime readiness: ${failures.length ? 'not ready' : 'ready'}`,
   ];
   console.log(lines.join('\n'));
+}
+
+function requireVerificationEmail() {
+  if (!verificationEmail) {
+    throw new Error('Set PRODUCTION_VERIFY_EMAIL.');
+  }
+  return verificationEmail;
+}
+
+function requireVerificationCode() {
+  if (!/^\d{6}$/.test(verificationCode)) {
+    throw new Error('Set PRODUCTION_VERIFY_EMAIL_CODE to the 6-digit code from the email.');
+  }
+  return verificationCode;
 }
 
 function readinessFailures(status) {

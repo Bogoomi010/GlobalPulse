@@ -97,6 +97,8 @@ await record('Comment API rejects missing session', async () => {
   return '401';
 });
 
+await record('Public responses avoid secret fields', auditPublicResponseSecretFields);
+
 await record('Payment create is disabled', () =>
   expectPaymentGone('/api/payments/create', {
     idempotencyKey: 'verify-create',
@@ -248,6 +250,90 @@ async function fetchJson(pathname, init = {}) {
     }
   }
   return { body, response };
+}
+
+async function auditPublicResponseSecretFields() {
+  const issueId = await getSmokeIssueId();
+  const responses = [
+    ['GET /api/issues', await fetchJson('/api/issues')],
+    ['GET /api/comments', await fetchJson(`/api/comments?issueId=${encodeURIComponent(issueId)}`)],
+    ['GET /api/wallet', await fetchJson('/api/wallet?countryCode=KR')],
+    ['GET /api/moderation/reports', await fetchJson('/api/moderation/reports')],
+    ['GET /api/admin/status', await fetchJson('/api/admin/status')],
+    [
+      'POST /api/admin/refresh-issues',
+      await fetchJson('/api/admin/refresh-issues', {
+        method: 'POST',
+      }),
+    ],
+    [
+      'POST /api/payments/create',
+      await fetchJson('/api/payments/create', {
+        body: JSON.stringify({
+          idempotencyKey: 'verify-secret-audit',
+          origin: origin.origin,
+          planId: 'removed',
+        }),
+        method: 'POST',
+      }),
+    ],
+  ];
+
+  const findings = [];
+  for (const [label, result] of responses) {
+    collectSensitiveResponseFindings(result.body, label, findings);
+  }
+
+  if (findings.length) {
+    throw new Error(findings.join('; '));
+  }
+
+  return `${responses.length} responses checked`;
+}
+
+function collectSensitiveResponseFindings(value, path, findings) {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => collectSensitiveResponseFindings(item, `${path}[${index}]`, findings));
+    return;
+  }
+
+  if (value && typeof value === 'object') {
+    for (const [key, nestedValue] of Object.entries(value)) {
+      const nextPath = `${path}.${key}`;
+      if (isSensitiveResponseKey(key)) {
+        findings.push(`${nextPath} exposes a sensitive field name`);
+      }
+      collectSensitiveResponseFindings(nestedValue, nextPath, findings);
+    }
+    return;
+  }
+
+  if (typeof value === 'string' && isSensitiveResponseValue(value)) {
+    findings.push(`${path} exposes a sensitive-looking value`);
+  }
+}
+
+function isSensitiveResponseKey(key) {
+  return [
+    /^devCode$/i,
+    /sessionToken/i,
+    /tokenHash/i,
+    /codeHash/i,
+    /adminToken/i,
+    /moderationAdminToken/i,
+    /apiKey/i,
+    /secret/i,
+    /^authorization$/i,
+    /^otp/i,
+  ].some((pattern) => pattern.test(key));
+}
+
+function isSensitiveResponseValue(value) {
+  return [
+    /\bgps_[a-f0-9]{64}\b/i,
+    /\bre_[A-Za-z0-9_-]{20,}\b/,
+    /\bBearer\s+[A-Za-z0-9._-]{20,}\b/i,
+  ].some((pattern) => pattern.test(value));
 }
 
 async function expectPaymentGone(pathname, body) {

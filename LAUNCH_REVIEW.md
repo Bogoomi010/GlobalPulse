@@ -34,6 +34,7 @@ Complete the Pre-ACK items before setting `LAUNCH_REVIEW_ACK`. Complete the Post
 - [x] `yarn audit:public-copy` confirms public UI copy avoids removed payment-provider, checkout, top-up, and paid-comment wording.
 - [x] Public production verification confirms deployed HTML, JS, and CSS assets avoid removed payment-provider, checkout, top-up, and paid-comment wording.
 - [x] Public production verification confirms deployed UI/policy copy includes signed-in free comment access, comment non-authority disclaimers, moderation/report handling, and neutral issue framing.
+- [x] Public production verification confirms unauthenticated public/protected responses do not expose OTP code, admin token, session token, secret, authorization, or API key fields.
 - [x] Local full-stack smoke verifies session logout revocation, duplicate report idempotency, open/reviewed/all moderation queues, hide/restore/dismiss actions, and public visibility rules for hidden, restored, dismissed, and deleted comments.
 - [ ] `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn admin:status` reports D1 schema ready, Resend configured, HTTPS public origin match, demo login disabled, active payment plans `0`, legacy payment secrets `none`, and launch review status not yet acknowledged.
 - [ ] `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review` includes protected runtime evidence without printing the admin token.
@@ -47,9 +48,9 @@ Complete the Pre-ACK items before setting `LAUNCH_REVIEW_ACK`. Complete the Post
 ### Current Evidence Snapshot
 
 ```text
-Timestamp: 2026-06-07T06:19:04Z
+Timestamp: 2026-06-07T06:28:38Z
 Public launch review: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md
-Public production verification: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production, including deployed public-copy audit, deployed policy-copy audit, source links, neutral issue wording, anonymous reaction like/switch/cancel baseline restoration, and unauthenticated comment write rejection
+Public production verification: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production, including deployed public-copy audit, deployed policy-copy audit, public response secret-field audit, source links, neutral issue wording, anonymous reaction like/switch/cancel baseline restoration, and unauthenticated comment write rejection
 Public copy audit: PASS via yarn audit:public-copy and deployed HTML/JS/CSS verification
 Public browser smoke: PASS for feed render, search, category filter, sort tabs, detail modal, anonymous reaction toggle, mobile 390px layout, and desktop 1440px layout
 Production responsive smoke: PASS for feed, issue details, login, comments, policy, and ops at 390x844 mobile and 1440x900 desktop with no horizontal overflow

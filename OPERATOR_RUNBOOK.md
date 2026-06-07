@@ -125,6 +125,7 @@ Expected evidence:
 - Public issue title, summary, and detail text avoid verdict-like fact/truth claims.
 - Deployed HTML, JS, and CSS assets avoid removed payment-provider, checkout, top-up, and paid-comment wording.
 - Deployed UI/policy copy includes signed-in free comment access, comment non-authority disclaimers, moderation/report handling, and neutral issue framing.
+- Unauthenticated public/protected responses do not expose OTP code, admin token, session token, secret, authorization, or API key fields.
 - Local full-stack smoke verifies logout revocation, duplicate report idempotency, open/reviewed/all moderation queues, hide/restore/dismiss actions, and public visibility rules for hidden, restored, dismissed, and deleted comments.
 - Anonymous reaction smoke can like an issue, switch to dislike, cancel the reaction, restore baseline counts, and observe persisted aggregates through `/api/issues`.
 - Comment list loads publicly for an issue, and comment creation rejects missing signed-in sessions.

@@ -26,7 +26,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Comment reports are idempotent per anonymous session to reduce moderation queue spam
 - Token-protected moderation API and ops screen list reported comments and record hide/restore/dismiss review actions
 - Local full-stack smoke test runs Pages Functions with local D1 through Wrangler and verifies OTP login, reactions, free comments, reporting, moderation, logout, and disabled payment endpoints
-- Production deploy gate blocks deployment when D1, session secret, moderation admin token, public origin, launch review acknowledgement, or verified email auth settings are missing
+- Production deploy gate blocks deployment when D1, session secret, moderation admin token, public origin, launch review acknowledgement, verified email auth settings, or old payment-provider secrets are misconfigured
 - Production D1 migration script shares the local migration list and requires an explicit confirmation value before applying remote migrations
 - Production URL verification script checks the public app, D1 issue count, protected API behavior, disabled payment API behavior, moderation and live-refresh protection, and optional Resend OTP delivery
 - Production admin CLI can check runtime state, refresh public issues, and verify production email OTP login without exposing admin tokens or session tokens
@@ -80,7 +80,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: `yarn admin:status`, `yarn admin:ready`, `yarn admin:refresh-issues`, `yarn admin:test-email`, and `yarn admin:verify-email` support protected production operations when an operator token is supplied.
    - Apply D1 migrations and bind the production database.
    - Run `yarn test:api` before deployment to verify local D1/API behavior.
-   - Run `yarn check:deploy` before deployment to verify production D1, public origin, session secret, moderation token, email settings, and launch review acknowledgement are configured.
+   - Run `yarn check:deploy` before deployment to verify production D1, public origin, session secret, moderation token, email settings, launch review acknowledgement, and old payment-provider secret removal.
 
 ## Required Environment Variables
 
@@ -102,12 +102,14 @@ Server:
 ## Deployment Gate
 
 Do not claim GlobalPulse is production-ready until the D1 binding, session secret, moderation token, Resend email settings, public origin, and launch review acknowledgement are configured and verified.
+Do not claim GlobalPulse is production-ready while old Stripe, Toss, or payment-provider secrets remain configured in the deployment environment.
 
 ## Remaining Production Work
 
 - Resend sender/domain verification and email OTP delivery test in production
 - D1 migration execution in production
 - Production deployment URL verification
+- Remove old Stripe/Toss/payment-provider secrets from Cloudflare Pages
 - Privacy/security/moderation/content policy review
 - Run operator live issue refresh after production secrets and D1 are confirmed
 - Set `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` after completing the operator launch review

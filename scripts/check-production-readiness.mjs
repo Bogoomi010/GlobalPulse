@@ -16,6 +16,16 @@ const commonRequiredEnv = [
   'LAUNCH_REVIEW_ACK',
 ];
 
+const forbiddenPaymentEnv = [
+  'PAYMENT_PROVIDER',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'TOSS_CLIENT_KEY',
+  'TOSS_SECRET_KEY',
+  'TOSS_WEBHOOK_SECRET',
+  'VITE_TOSS_CLIENT_KEY',
+];
+
 const failures = [];
 const warnings = [];
 
@@ -35,6 +45,12 @@ if (!databaseId || databaseId === 'REPLACE_WITH_PRODUCTION_D1_DATABASE_ID') {
 
 for (const key of commonRequiredEnv) {
   if (!process.env[key]) failures.push(`${key} must be set in the deployment environment.`);
+}
+
+for (const key of forbiddenPaymentEnv) {
+  if (process.env[key]) {
+    failures.push(`${key} must be removed because GlobalPulse no longer accepts payments.`);
+  }
 }
 
 const sessionSecret = process.env.SESSION_TOKEN_SECRET || '';

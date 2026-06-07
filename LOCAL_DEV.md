@@ -65,6 +65,8 @@ This command is expected to fail in local development until production D1, Resen
 
 `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` is also required for production readiness. Use it only after completing `LAUNCH_REVIEW.md`; the value is an operator acknowledgement, not a legal substitute.
 
+Production readiness also fails when legacy payment variables such as `PAYMENT_PROVIDER`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`, or `VITE_TOSS_CLIENT_KEY` remain configured. GlobalPulse no longer accepts payments, so these secrets should be removed from Cloudflare Pages before launch.
+
 ## Production D1 Migrations
 
 ```bash

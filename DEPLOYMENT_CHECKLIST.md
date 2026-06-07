@@ -35,6 +35,7 @@
 - Configure `APP_PUBLIC_ORIGIN` to the production HTTPS origin.
 - Confirm `/api/admin/status` reports that `APP_PUBLIC_ORIGIN` uses HTTPS and matches the deployed request origin.
 - Set `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` only after the launch review is complete.
+- Remove old payment provider variables and secrets: `PAYMENT_PROVIDER`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`, and `VITE_TOSS_CLIENT_KEY`.
 
 ## Required Deployment Variables
 
@@ -50,7 +51,7 @@
 
 Do not deploy as production if email login, session secret, moderation token, D1 binding, public origin, or launch review acknowledgement are missing.
 
-GlobalPulse does not use Stripe, Toss, or other payment provider secrets. If old payment secrets still exist in Cloudflare, remove them from the project settings after the deployment is verified.
+GlobalPulse does not use Stripe, Toss, or other payment provider secrets. If old payment secrets still exist in Cloudflare, remove them from the project settings before deploying; `yarn check:deploy` blocks production readiness when these variables are present.
 
 ## Post-Deploy Verification
 

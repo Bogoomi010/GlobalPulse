@@ -93,6 +93,8 @@ The verifier checks the public app shell, D1 issue API count, protected API beha
 
 `launch:review` prints a Markdown launch review report for `LAUNCH_REVIEW.md`. Without an admin token it includes only public evidence and marks protected runtime checks as skipped. With `PRODUCTION_ADMIN_TOKEN` or `MODERATION_ADMIN_TOKEN`, it adds non-secret runtime readiness evidence and next actions without printing token or secret values.
 
+Add `--output .artifacts/launch-review.md` when you want to save the non-secret report locally. `.artifacts/` is ignored by git.
+
 ## Production Admin Commands
 
 ```bash

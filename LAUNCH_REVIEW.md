@@ -22,6 +22,7 @@ Complete the Pre-ACK items before setting `LAUNCH_REVIEW_ACK`. Complete the Post
 
 - [ ] Production URL opens publicly at `https://globalpulse-pages.pages.dev/`.
 - [ ] `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review` produces a non-secret launch review report.
+- [ ] Optional: `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` saves a local non-secret report.
 - [ ] `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production` passes.
 - [ ] `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn admin:status` reports D1 schema ready, Resend configured, HTTPS public origin match, demo login disabled, active payment plans `0`, legacy payment secrets `none`, and launch review status not yet acknowledged.
 - [ ] `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review` includes protected runtime evidence without printing the admin token.

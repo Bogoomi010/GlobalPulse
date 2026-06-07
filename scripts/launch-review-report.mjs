@@ -1,6 +1,9 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { URL } from 'node:url';
 
 const allowHttp = process.argv.includes('--allow-http');
+const outputPath = readOption('--output');
 const target = process.argv.find((arg) => arg.startsWith('http')) || process.env.APP_PUBLIC_ORIGIN || '';
 const adminToken = process.env.PRODUCTION_ADMIN_TOKEN || process.env.MODERATION_ADMIN_TOKEN || '';
 
@@ -88,8 +91,13 @@ if (adminToken) {
 
 const runtimeFailures = adminStatus ? readinessFailures(adminStatus) : [];
 const publicFailures = checks.filter((check) => check.ok === false);
+const report = renderReport();
 
-console.log(renderReport());
+if (outputPath) {
+  writeReport(outputPath, report);
+}
+
+console.log(report);
 
 if (publicFailures.length) {
   process.exit(1);
@@ -325,4 +333,20 @@ function escapeMarkdown(value) {
   return String(value ?? '')
     .replaceAll('|', '\\|')
     .replaceAll('\n', ' ');
+}
+
+function readOption(name) {
+  const inline = process.argv.find((arg) => arg.startsWith(`${name}=`));
+  if (inline) return inline.slice(name.length + 1);
+
+  const index = process.argv.indexOf(name);
+  if (index === -1) return '';
+  return process.argv[index + 1] || '';
+}
+
+function writeReport(targetPath, report) {
+  const resolvedPath = path.resolve(targetPath);
+  fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+  fs.writeFileSync(resolvedPath, `${report}\n`, 'utf8');
+  console.error(`Launch review report written to ${resolvedPath}.`);
 }

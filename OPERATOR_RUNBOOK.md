@@ -83,6 +83,12 @@ APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review
 APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production
 ```
 
+Optionally save the public report as a local non-secret artifact:
+
+```bash
+APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md
+```
+
 Expected evidence:
 
 - Public app loads.
@@ -98,6 +104,12 @@ Run with the operator admin token available only in the shell environment:
 ```bash
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn admin:status
+```
+
+Optionally save the protected report as a local non-secret artifact:
+
+```bash
+PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-protected.md
 ```
 
 Expected evidence:
@@ -162,6 +174,12 @@ Then wait for a fresh production deployment and run:
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn admin:ready
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review
+```
+
+Optionally save the final report:
+
+```bash
+PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-final.md
 ```
 
 All three commands must pass before claiming production readiness.

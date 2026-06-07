@@ -33,8 +33,8 @@ const jsonRequest = async (baseUrl, pathname, options = {}) => {
   return { body, response };
 };
 
-const runLaunchReviewReport = (baseUrl, env = {}) =>
-  execFileSync('node', ['scripts/launch-review-report.mjs', '--allow-http', baseUrl], {
+const runLaunchReviewReport = (baseUrl, env = {}, args = []) =>
+  execFileSync('node', ['scripts/launch-review-report.mjs', '--allow-http', baseUrl, ...args], {
     cwd: root,
     encoding: 'utf8',
     env: {
@@ -373,6 +373,22 @@ try {
   assert(
     !publicLaunchReview.includes('smoke-moderation-token'),
     'Public launch review report must not print the moderation token',
+  );
+
+  const reportOutputPath = path.join(root, persistTo, 'launch-review-report.md');
+  const savedLaunchReview = runLaunchReviewReport(baseUrl, {}, ['--output', reportOutputPath]);
+  const savedLaunchReviewFile = fs.readFileSync(reportOutputPath, 'utf8');
+  assert(
+    savedLaunchReviewFile.includes('# GlobalPulse Launch Review Report'),
+    'Launch review report output file should include the report heading',
+  );
+  assert(
+    savedLaunchReviewFile === savedLaunchReview,
+    'Launch review report output file should match stdout report content',
+  );
+  assert(
+    !savedLaunchReviewFile.includes('smoke-moderation-token'),
+    'Saved launch review report must not print the moderation token',
   );
 
   const protectedLaunchReview = runLaunchReviewReport(baseUrl, {

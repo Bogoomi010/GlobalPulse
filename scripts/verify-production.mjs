@@ -16,6 +16,7 @@ if (!allowHttp && origin.protocol !== 'https:') {
 }
 
 const checks = [];
+let firstIssueIdPromise;
 
 const record = async (name, fn) => {
   try {
@@ -49,6 +50,28 @@ await record('Anonymous reaction toggle persists', runAnonymousReactionSmoke);
 
 await record('Wallet API rejects missing session', async () => {
   const { response } = await fetchJson('/api/wallet?countryCode=KR');
+  if (response.status !== 401) throw new Error(`Expected 401, got ${response.status}`);
+  return '401';
+});
+
+await record('Comment list is public', async () => {
+  const issueId = await getFirstIssueId();
+  const { body, response } = await fetchJson(`/api/comments?issueId=${encodeURIComponent(issueId)}`);
+  if (!response.ok) throw new Error(`Expected 200, got ${response.status}`);
+  if (!Array.isArray(body?.comments)) throw new Error('comments must be an array');
+  return `${body.comments.length} comments for ${issueId}`;
+});
+
+await record('Comment API rejects missing session', async () => {
+  const issueId = await getFirstIssueId();
+  const { response } = await fetchJson('/api/comments', {
+    body: JSON.stringify({
+      content: 'Production verification should not write without a session',
+      idempotencyKey: `verify-comment-${randomUUID()}`,
+      issueId,
+    }),
+    method: 'POST',
+  });
   if (response.status !== 401) throw new Error(`Expected 401, got ${response.status}`);
   return '401';
 });
@@ -216,13 +239,7 @@ async function expectPaymentGone(pathname, body) {
 }
 
 async function runAnonymousReactionSmoke() {
-  const { body, response } = await fetchJson('/api/issues');
-  if (!response.ok) throw new Error(`Expected 200 from /api/issues, got ${response.status}`);
-  if (!Array.isArray(body?.issues) || !body.issues.length) throw new Error('No issues available for reaction smoke');
-
-  const issueId = body.issues[0].id;
-  if (typeof issueId !== 'string' || !issueId) throw new Error('First issue does not include an id');
-
+  const issueId = await getFirstIssueId();
   const anonymousToken = `verify_${randomUUID()}`;
   let currentReaction = null;
 
@@ -265,6 +282,19 @@ async function runAnonymousReactionSmoke() {
       }
     }
   }
+}
+
+async function getFirstIssueId() {
+  firstIssueIdPromise ??= (async () => {
+    const { body, response } = await fetchJson('/api/issues');
+    if (!response.ok) throw new Error(`Expected 200 from /api/issues, got ${response.status}`);
+    if (!Array.isArray(body?.issues) || !body.issues.length) throw new Error('No issues available');
+    const issueId = body.issues[0].id;
+    if (typeof issueId !== 'string' || !issueId) throw new Error('First issue does not include an id');
+    return issueId;
+  })();
+
+  return firstIssueIdPromise;
 }
 
 async function expectIssueAggregate(issueId, expectedLikes, expectedDislikes, phase) {

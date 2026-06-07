@@ -118,6 +118,7 @@ Expected evidence:
 - Public app loads.
 - `/api/issues` returns at least 20 issues.
 - Anonymous reaction smoke can like an issue, switch to dislike, cancel the reaction, and observe persisted aggregates through `/api/issues`.
+- Comment list loads publicly for an issue, and comment creation rejects missing signed-in sessions.
 - Protected APIs reject missing tokens.
 - Payment create, confirm, fail, and webhook endpoints return `410`.
 - Admin runtime status is skipped by `launch:review` until an admin token is provided.

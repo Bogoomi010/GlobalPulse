@@ -31,6 +31,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Production D1 migration script shares the local migration list and requires an explicit confirmation value before applying remote migrations
 - Production URL verification script checks the public app, D1 issue count, protected API behavior, disabled payment API behavior, moderation and live-refresh protection, and optional Resend OTP delivery
 - Launch review report script prints non-secret public and protected runtime evidence for operator review
+- Operator runbook documents the ordered Cloudflare, Resend, verification, and launch acknowledgement procedure
 - Production admin CLI can check runtime state, refresh public issues, and verify production email OTP login without exposing admin tokens or session tokens
 
 ## Milestones

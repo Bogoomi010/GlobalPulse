@@ -2,6 +2,8 @@
 
 Complete this review before telling users that GlobalPulse is production-ready.
 
+Use `OPERATOR_RUNBOOK.md` for the ordered Cloudflare, Resend, verification, and launch acknowledgement procedure.
+
 Do not paste API keys, admin tokens, OTP codes, session tokens, or secret values into this file. Record only pass/fail results, timestamps, command names, and non-secret observations.
 
 ## Required Operator Review

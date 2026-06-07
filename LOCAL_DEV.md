@@ -1,5 +1,7 @@
 # GlobalPulse Local Full-Stack Development
 
+Use `OPERATOR_RUNBOOK.md` for the production Cloudflare, Resend, verification, and launch acknowledgement procedure.
+
 ## Run The Vite UI
 
 ```bash

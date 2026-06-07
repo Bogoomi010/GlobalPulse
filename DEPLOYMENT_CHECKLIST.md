@@ -1,5 +1,7 @@
 # GlobalPulse Deployment Checklist
 
+Use `OPERATOR_RUNBOOK.md` for the ordered Cloudflare, Resend, verification, and launch acknowledgement procedure.
+
 ## Build
 
 - Run `yarn lint`.

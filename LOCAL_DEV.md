@@ -88,7 +88,8 @@ The verifier checks the public app shell, D1 issue API count, protected API beha
 
 ```bash
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:status
+PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:ready
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:refresh-issues
 ```
 
-These commands call the protected admin APIs without printing the token. `admin:refresh-issues` refreshes public issues and then prints the updated runtime status.
+These commands call the protected admin APIs without printing the token. `admin:ready` exits nonzero and lists missing runtime items when the deployment is not launch-ready. `admin:refresh-issues` refreshes public issues and then prints the updated runtime status.

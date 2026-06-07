@@ -16,6 +16,7 @@
     "test:api": "yarn build && node scripts/smoke-api.mjs",
     "check:deploy": "node scripts/check-production-readiness.mjs",
     "verify:production": "node scripts/verify-production.mjs",
+    "launch:review": "node scripts/launch-review-report.mjs",
     "admin:status": "node scripts/admin-runtime.mjs status",
     "admin:ready": "node scripts/admin-runtime.mjs ready",
     "admin:refresh-issues": "node scripts/admin-runtime.mjs refresh-issues",

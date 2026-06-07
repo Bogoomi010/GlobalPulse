@@ -83,9 +83,13 @@ The production command applies the shared migration list to remote D1 through Wr
 APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
 PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
+APP_PUBLIC_ORIGIN=https://your-production-domain yarn launch:review
+PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn launch:review
 ```
 
 The verifier checks the public app shell, D1 issue API count, protected API behavior, disabled payment API behavior, moderation and issue-refresh token protection, and optional Resend OTP delivery. When `PRODUCTION_ADMIN_TOKEN` or `MODERATION_ADMIN_TOKEN` is set, it also checks non-secret runtime readiness from `/api/admin/status`.
+
+`launch:review` prints a Markdown launch review report for `LAUNCH_REVIEW.md`. Without an admin token it includes only public evidence and marks protected runtime checks as skipped. With `PRODUCTION_ADMIN_TOKEN` or `MODERATION_ADMIN_TOKEN`, it adds non-secret runtime readiness evidence and next actions without printing token or secret values.
 
 ## Production Admin Commands
 

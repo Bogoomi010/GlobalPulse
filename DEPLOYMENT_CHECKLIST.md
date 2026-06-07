@@ -7,6 +7,7 @@
 - Run `yarn test:api`.
 - Run `yarn check:deploy`.
 - Run `yarn db:migrate:production:dry-run`.
+- After deployment, run `APP_PUBLIC_ORIGIN=https://your-production-domain yarn launch:review`.
 - After deployment, run `APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production`.
 - With the admin token available, run `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production`.
 - Verify mobile and desktop layouts.
@@ -59,6 +60,8 @@ GlobalPulse does not use Stripe, Toss, or other payment provider secrets. If old
 - Production URL opens publicly.
 - Dummy issues are visible.
 - Optional live issues from Wikimedia Current Events, Hacker News, and GDELT can be refreshed by an operator.
+- `APP_PUBLIC_ORIGIN=https://your-production-domain yarn launch:review` prints a non-secret public launch review report.
+- `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn launch:review` adds protected runtime readiness evidence without exposing secrets.
 - `APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production` passes.
 - `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:status` reports runtime readiness without exposing secrets.
 - `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:ready` passes after runtime settings and launch review are complete.

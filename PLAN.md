@@ -30,6 +30,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Production deploy gate blocks deployment when D1, session secret, moderation admin token, public origin, launch review acknowledgement, verified email auth settings, or old payment-provider secrets are misconfigured
 - Production D1 migration script shares the local migration list and requires an explicit confirmation value before applying remote migrations
 - Production URL verification script checks the public app, D1 issue count, protected API behavior, disabled payment API behavior, moderation and live-refresh protection, and optional Resend OTP delivery
+- Launch review report script prints non-secret public and protected runtime evidence for operator review
 - Production admin CLI can check runtime state, refresh public issues, and verify production email OTP login without exposing admin tokens or session tokens
 
 ## Milestones
@@ -78,6 +79,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Cloudflare Pages/Functions runtime is configured.
    - Done: `yarn db:migrate:production:dry-run` lists production migrations, and `yarn db:migrate:production` applies them only after `CONFIRM_PRODUCTION_MIGRATIONS` matches the configured D1 database name.
    - Done: `yarn verify:production` verifies the public deployment URL and can send a real Resend OTP when `PRODUCTION_VERIFY_EMAIL` is provided.
+   - Done: `yarn launch:review` prints a non-secret launch review report for public and optional protected runtime evidence.
    - Done: `yarn admin:status`, `yarn admin:ready`, `yarn admin:refresh-issues`, `yarn admin:test-email`, and `yarn admin:verify-email` support protected production operations when an operator token is supplied.
    - Apply D1 migrations and bind the production database.
    - Run `yarn test:api` before deployment to verify local D1/API behavior.

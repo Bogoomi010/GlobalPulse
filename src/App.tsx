@@ -1649,6 +1649,7 @@ function OpsRuntimeStatus({
       runtimeStatus.payments.legacySecretCount === 0,
   );
   const launchReady = Boolean(runtimeStatus?.config.launchReviewAcknowledged);
+  const launchBlockers = runtimeStatus ? getLaunchBlockers(runtimeStatus) : [];
 
   return (
     <div className="mt-5 border-t border-white/10 pt-5">
@@ -1669,10 +1670,82 @@ function OpsRuntimeStatus({
           <OpsStatusLine label="Payments disabled" ok={paymentsDisabled} />
           <OpsStatusLine label={`Legacy payment secrets ${runtimeStatus.payments.legacySecretCount}`} ok={runtimeStatus.payments.legacySecretCount === 0} />
           <OpsStatusLine label="Launch review ACK" ok={launchReady} />
+          {launchBlockers.length ? (
+            <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100">Remaining launch blockers</p>
+              <ul className="mt-2 grid gap-1 text-xs leading-5 text-amber-50/90">
+                {launchBlockers.map((item) => (
+                  <li key={item}>- {item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-xs font-black text-emerald-100">
+              Runtime launch gates are clear.
+            </div>
+          )}
         </div>
       ) : null}
     </div>
   );
+}
+
+function getLaunchBlockers(runtimeStatus: RuntimeStatus): string[] {
+  const blockers: string[] = [];
+
+  if (runtimeStatus.d1.issueCount < 20) {
+    blockers.push(`D1 needs at least 20 issues; current count is ${runtimeStatus.d1.issueCount}.`);
+  }
+  if (!runtimeStatus.d1.requiredTablesPresent) {
+    const missing = runtimeStatus.d1.missingTables.length
+      ? runtimeStatus.d1.missingTables.join(', ')
+      : 'unknown tables';
+    blockers.push(`D1 schema is missing: ${missing}.`);
+  }
+  if (runtimeStatus.auth.provider !== 'resend') {
+    blockers.push(`AUTH_PROVIDER must be resend; current value is ${runtimeStatus.auth.provider || 'not configured'}.`);
+  }
+  if (!runtimeStatus.auth.resendConfigured) {
+    blockers.push('RESEND_API_KEY is not configured.');
+  }
+  if (!runtimeStatus.auth.emailFromConfigured) {
+    blockers.push('AUTH_EMAIL_FROM is not configured.');
+  }
+  if (runtimeStatus.auth.logDeliveryEnabled) {
+    blockers.push('AUTH_EMAIL_DELIVERY=log must be removed from production.');
+  }
+  if (!runtimeStatus.config.sessionSecretConfigured) {
+    blockers.push('SESSION_TOKEN_SECRET is not configured.');
+  }
+  if (!runtimeStatus.config.moderationAdminTokenConfigured) {
+    blockers.push('MODERATION_ADMIN_TOKEN is not configured.');
+  }
+  if (!runtimeStatus.config.appPublicOriginConfigured) {
+    blockers.push('APP_PUBLIC_ORIGIN is not configured.');
+  }
+  if (!runtimeStatus.config.appPublicOriginHttps) {
+    blockers.push('APP_PUBLIC_ORIGIN must use HTTPS.');
+  }
+  if (!runtimeStatus.config.appPublicOriginMatchesRequest) {
+    blockers.push('APP_PUBLIC_ORIGIN must match this deployment origin.');
+  }
+  if (runtimeStatus.config.demoLoginEnabled) {
+    blockers.push('ALLOW_DEMO_LOGIN must be disabled in production.');
+  }
+  if (runtimeStatus.payments.activePlanCount !== 0) {
+    blockers.push(`Active payment plans must be disabled; current count is ${runtimeStatus.payments.activePlanCount}.`);
+  }
+  if (runtimeStatus.payments.legacySecretCount !== 0) {
+    const names = runtimeStatus.payments.legacySecretsPresent.length
+      ? runtimeStatus.payments.legacySecretsPresent.join(', ')
+      : 'unknown payment secrets';
+    blockers.push(`Remove legacy payment secrets: ${names}.`);
+  }
+  if (!runtimeStatus.config.launchReviewAcknowledged) {
+    blockers.push('Complete LAUNCH_REVIEW.md, then set LAUNCH_REVIEW_ACK.');
+  }
+
+  return blockers;
 }
 
 function OpsStatusLine({ label, ok }: { label: string; ok: boolean }) {

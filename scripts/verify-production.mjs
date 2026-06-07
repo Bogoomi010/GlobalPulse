@@ -3,6 +3,7 @@ import { URL } from 'node:url';
 const allowHttp = process.argv.includes('--allow-http');
 const target = process.argv.find((arg) => arg.startsWith('http')) || process.env.APP_PUBLIC_ORIGIN || '';
 const verificationEmail = process.env.PRODUCTION_VERIFY_EMAIL || '';
+const adminToken = process.env.PRODUCTION_ADMIN_TOKEN || process.env.MODERATION_ADMIN_TOKEN || '';
 
 if (!target) {
   throw new Error('Set APP_PUBLIC_ORIGIN or pass a production URL to verify.');
@@ -98,6 +99,32 @@ if (verificationEmail) {
       throw new Error('Production email response must not include devCode');
     }
     return `code sent to ${verificationEmail}`;
+  });
+}
+
+if (adminToken) {
+  await record('Admin runtime status is production-ready', async () => {
+    const { body, response } = await fetchJson('/api/admin/status', {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    if (!response.ok) throw new Error(`Expected 200, got ${response.status}`);
+    if (body?.status !== 'ok') throw new Error(`Expected ok status, got ${body?.status}`);
+    if (!body.config?.sessionSecretConfigured) throw new Error('SESSION_TOKEN_SECRET is not configured');
+    if (!body.config?.moderationAdminTokenConfigured) throw new Error('MODERATION_ADMIN_TOKEN is not configured');
+    if (!body.config?.appPublicOriginConfigured) throw new Error('APP_PUBLIC_ORIGIN is not configured');
+    if (body.config?.demoLoginEnabled) throw new Error('ALLOW_DEMO_LOGIN must not be enabled in production');
+    if (body.auth?.provider !== 'resend') throw new Error(`AUTH_PROVIDER must be resend, got ${body.auth?.provider}`);
+    if (!body.auth?.resendConfigured) throw new Error('RESEND_API_KEY is not configured');
+    if (!body.auth?.emailFromConfigured) throw new Error('AUTH_EMAIL_FROM is not configured');
+    if (body.auth?.logDeliveryEnabled) throw new Error('AUTH_EMAIL_DELIVERY=log must not be enabled');
+    if (Number(body.d1?.issueCount ?? 0) < 20) throw new Error('D1 issue count must be at least 20');
+    if (Number(body.payments?.activePlanCount ?? 0) !== 0) {
+      throw new Error('Active payment plans must be disabled');
+    }
+    if (!body.config?.launchReviewAcknowledged) {
+      throw new Error('LAUNCH_REVIEW_ACK is not acknowledged');
+    }
+    return `${body.d1.issueCount} issues, payments disabled`;
   });
 }
 

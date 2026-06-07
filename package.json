@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "pages:dev": "wrangler pages dev dist --persist-to .wrangler/state --binding SESSION_TOKEN_SECRET=local-dev-session-secret --binding MODERATION_ADMIN_TOKEN=local-dev-moderation-token --binding APP_PUBLIC_ORIGIN=http://127.0.0.1:8788 --binding ALLOW_DEMO_LOGIN=true --port 8788 --no-install-skills",
+    "pages:dev": "wrangler pages dev dist --persist-to .wrangler/state --binding SESSION_TOKEN_SECRET=local-dev-session-secret --binding MODERATION_ADMIN_TOKEN=local-dev-moderation-token --binding APP_PUBLIC_ORIGIN=http://127.0.0.1:8788 --binding ALLOW_DEMO_LOGIN=true --binding AUTH_PROVIDER=resend --binding AUTH_EMAIL_DELIVERY=log --binding AUTH_EMAIL_FROM=local-dev@globalpulse.test --port 8788 --no-install-skills",
     "db:migrate:local": "node scripts/apply-local-migrations.mjs",
     "db:migrate:production": "node scripts/apply-production-migrations.mjs",
     "db:migrate:production:dry-run": "node scripts/apply-production-migrations.mjs --dry-run",
@@ -16,6 +16,8 @@
     "test:api": "yarn build && node scripts/smoke-api.mjs",
     "check:deploy": "node scripts/check-production-readiness.mjs",
     "verify:production": "node scripts/verify-production.mjs",
+    "admin:status": "node scripts/admin-runtime.mjs status",
+    "admin:refresh-issues": "node scripts/admin-runtime.mjs refresh-issues",
     "deploy": "yarn lint && yarn test:api && yarn check:deploy && wrangler pages deploy dist"
   },
   "dependencies": {

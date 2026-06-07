@@ -18,7 +18,7 @@ yarn pages:dev
 
 Open `http://127.0.0.1:8788`.
 
-`pages:dev` sets local session, moderation, origin, and demo-login bindings. It does not configure Stripe, Toss, or any other payment provider because GlobalPulse no longer accepts payments. Open the `Ops` navigation item and enter `local-dev-moderation-token` to inspect the local moderation queue after reporting a comment.
+`pages:dev` sets local session, moderation, origin, demo-login, and email log-delivery bindings. It does not configure Stripe, Toss, or any other payment provider because GlobalPulse no longer accepts payments. Open the `Ops` navigation item and enter `local-dev-moderation-token` to inspect the local moderation queue after reporting a comment.
 
 Local Pages dev also sets `ALLOW_DEMO_LOGIN=true` so `/api/auth/login` can issue a test session without sending email. The API smoke test uses `AUTH_PROVIDER=resend` plus `AUTH_EMAIL_DELIVERY=log` to verify the OTP endpoints without sending real email. Production must use Resend delivery and must not enable local log delivery.
 
@@ -79,6 +79,16 @@ The production command applies the shared migration list to remote D1 through Wr
 ```bash
 APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
 PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
+PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
 ```
 
-The verifier checks the public app shell, D1 issue API count, protected API behavior, disabled payment API behavior, moderation and issue-refresh token protection, and optional Resend OTP delivery.
+The verifier checks the public app shell, D1 issue API count, protected API behavior, disabled payment API behavior, moderation and issue-refresh token protection, and optional Resend OTP delivery. When `PRODUCTION_ADMIN_TOKEN` or `MODERATION_ADMIN_TOKEN` is set, it also checks non-secret runtime readiness from `/api/admin/status`.
+
+## Production Admin Commands
+
+```bash
+PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:status
+PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:refresh-issues
+```
+
+These commands call the protected admin APIs without printing the token. `admin:refresh-issues` refreshes public issues and then prints the updated runtime status.

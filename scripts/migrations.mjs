@@ -7,4 +7,5 @@ export const migrations = [
   'migrations/0006_comment_report_uniqueness.sql',
   'migrations/0007_comment_report_reviews.sql',
   'migrations/0008_stripe_global_payment_plans.sql',
+  'migrations/0009_remove_payment_system.sql',
 ];

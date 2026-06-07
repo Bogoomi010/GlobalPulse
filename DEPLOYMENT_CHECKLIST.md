@@ -9,7 +9,7 @@
 - Run `yarn db:migrate:production:dry-run`.
 - After deployment, run `APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production`.
 - Verify mobile and desktop layouts.
-- Complete `LAUNCH_REVIEW.md` before enabling real payments.
+- Complete `LAUNCH_REVIEW.md` before calling the service production-ready.
 
 ## D1
 
@@ -17,36 +17,26 @@
 - Replace `wrangler.toml` `database_id` with the production D1 database UUID.
 - Review the migration list with `yarn db:migrate:production:dry-run`.
 - Apply all migrations with `CONFIRM_PRODUCTION_MIGRATIONS=globalpulse-production yarn db:migrate:production`.
+- Confirm migration `0009_remove_payment_system.sql` has disabled payment plans.
 - Seed production dummy issues and issue sources.
 - Bind the D1 database to the server runtime.
 
-## Payments
+## Runtime Configuration
 
 - Configure `AUTH_PROVIDER=resend`.
 - Configure `RESEND_API_KEY`.
 - Configure `AUTH_EMAIL_FROM` with a verified sender domain.
 - Ensure `ALLOW_DEMO_LOGIN` is not set in production.
 - Ensure `AUTH_EMAIL_DELIVERY=log` is not set in production.
-- Configure `PAYMENT_PROVIDER=stripe`.
-- Ensure `STRIPE_API_BASE_URL` is unset or `https://api.stripe.com` in production.
-- Configure Stripe production secret key.
-- Configure Stripe webhook signing secret.
 - Configure `SESSION_TOKEN_SECRET` with a high-entropy production value.
 - Configure `MODERATION_ADMIN_TOKEN` with a high-entropy production value.
-- Configure `APP_PUBLIC_ORIGIN` to the production HTTPS origin used for payment callbacks.
-- Configure success, failure, cancel, and webhook callback URLs.
-- Confirm `/payment/success` and `/payment/fail` route to the SPA through `public/_redirects`.
-- Verify provider signatures on webhook requests.
-- Ensure `provider_payment_id` and `idempotency_key` cannot be processed twice.
+- Configure `APP_PUBLIC_ORIGIN` to the production HTTPS origin.
 - Set `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` only after the launch review is complete.
 
 ## Required Deployment Variables
 
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
 - `SESSION_TOKEN_SECRET`
 - `MODERATION_ADMIN_TOKEN`
-- `PAYMENT_PROVIDER`
 - `AUTH_PROVIDER`
 - `RESEND_API_KEY`
 - `AUTH_EMAIL_FROM`
@@ -55,9 +45,9 @@
 
 ## Stop Condition
 
-If payment secrets or production webhook URLs are missing, do not deploy as a real-payment service and do not tell users that payments are available.
+Do not deploy as production if email login, session secret, moderation token, D1 binding, public origin, or launch review acknowledgement are missing.
 
-`yarn deploy` runs `yarn check:deploy` and must fail until the production D1 UUID, Stripe live secret key, webhook signing secret, session secret, moderation admin token, `APP_PUBLIC_ORIGIN`, `LAUNCH_REVIEW_ACK`, `PAYMENT_PROVIDER=stripe`, and verified email auth settings are configured.
+GlobalPulse does not use Stripe, Toss, or other payment provider secrets. If old payment secrets still exist in Cloudflare, remove them from the project settings after the deployment is verified.
 
 ## Post-Deploy Verification
 
@@ -66,32 +56,22 @@ If payment secrets or production webhook URLs are missing, do not deploy as a re
 - `APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production` passes.
 - `PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production` sends a Resend OTP without returning `devCode`.
 - `/api/issues` returns 20 seeded issues from D1.
+- `/api/payments/create`, `/api/payments/confirm`, and `/api/payments/webhook` return `410 Gone`.
 - Search, filters, and sort tabs work.
 - Anonymous like/dislike persists after refresh.
 - Duplicate reactions from the same browser are prevented.
 - Login works through the Resend email OTP provider.
 - Logout revokes the current server session and protected APIs reject the old Bearer token.
-- Wallet, paid comment, and payment creation APIs reject requests without a valid Bearer session token.
-- Top-up creates a pending payment through `/api/payments/create`.
-- Payment success/fail callback URLs use `APP_PUBLIC_ORIGIN`, not a client-supplied origin.
-- Browser redirects to Stripe Checkout from the selected top-up plan.
-- Stripe payment success calls `/api/payments/confirm` with server-side Checkout Session verification.
-- Stripe payment failure or cancellation calls `/api/payments/fail` and does not increase balance.
-- Approved payment increases wallet balance once.
-- Failed or cancelled payment appears in transaction history without increasing wallet balance.
-- Unsigned or incorrectly signed Stripe webhooks are rejected when `STRIPE_WEBHOOK_SECRET` is configured.
-- Repeated failure/cancellation callbacks do not create duplicate transaction history rows.
-- Stripe payment completion webhooks do not duplicate already confirmed top-ups.
-- Paid comment subtracts 100 KRW and appears in the comment list.
+- Comment APIs reject requests without a valid Bearer session token.
+- Logged-in comments are free and do not change wallet balance.
 - Duplicate comment reports from the same anonymous session are idempotent.
 - `/api/moderation/reports` rejects missing admin tokens, lists reported comments, and can hide or restore a reviewed comment.
 - The browser ops screen can connect with `MODERATION_ADMIN_TOKEN` and perform the same hide/restore review flow.
-- Transaction history persists after refresh.
 - Mobile and desktop layouts remain usable.
-- `LAUNCH_REVIEW_ACK` is set only after legal, tax, refund, minor payment, privacy, payment provider, security, and moderation review is complete.
+- `LAUNCH_REVIEW_ACK` is set only after privacy, security, moderation, and operations review is complete.
 
 ## Operational Notes
 
-- Legal, tax, refund, minor payment, privacy, payment provider, and moderation policies require operator review before launch.
+- Privacy, security, moderation, and jurisdiction-specific operating policies require operator review before launch.
 - GlobalPulse must avoid language that presents reactions as factual truth.
-- Paid comments do not imply credibility or factual accuracy.
+- Comments do not imply credibility or factual accuracy.

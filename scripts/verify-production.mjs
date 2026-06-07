@@ -1,11 +1,8 @@
-import { randomUUID } from 'node:crypto';
 import { URL } from 'node:url';
 
 const allowHttp = process.argv.includes('--allow-http');
 const target = process.argv.find((arg) => arg.startsWith('http')) || process.env.APP_PUBLIC_ORIGIN || '';
 const verificationEmail = process.env.PRODUCTION_VERIFY_EMAIL || '';
-const verificationSessionToken = process.env.PRODUCTION_VERIFY_SESSION_TOKEN || '';
-const verificationPlanId = process.env.PRODUCTION_VERIFY_PLAN_ID || 'krw-1000-stripe';
 
 if (!target) {
   throw new Error('Set APP_PUBLIC_ORIGIN or pass a production URL to verify.');
@@ -38,20 +35,6 @@ await record('Public app loads', async () => {
   return `${response.status} ${response.contentType}`;
 });
 
-await record('Payment success route serves SPA', async () => {
-  const response = await fetchText('/payment/success?provider=stripe&session_id=verify');
-  if (!response.ok) throw new Error(`Expected 200, got ${response.status}`);
-  if (!response.text.includes('GlobalPulse')) throw new Error('Payment success route did not serve app HTML');
-  return `${response.status} ${response.contentType}`;
-});
-
-await record('Payment fail route serves SPA', async () => {
-  const response = await fetchText('/payment/fail?orderId=verify&code=VERIFY&message=verify');
-  if (!response.ok) throw new Error(`Expected 200, got ${response.status}`);
-  if (!response.text.includes('GlobalPulse')) throw new Error('Payment fail route did not serve app HTML');
-  return `${response.status} ${response.contentType}`;
-});
-
 await record('/api/issues returns seeded D1 issues', async () => {
   const { body, response } = await fetchJson('/api/issues');
   if (!response.ok) throw new Error(`Expected 200, got ${response.status}`);
@@ -66,61 +49,18 @@ await record('Wallet API rejects missing session', async () => {
   return '401';
 });
 
-await record('Payment create rejects missing session', async () => {
+await record('Payment create is disabled', async () => {
   const { response } = await fetchJson('/api/payments/create', {
     body: JSON.stringify({
       idempotencyKey: 'verify',
       origin: origin.origin,
-      planId: verificationPlanId,
+      planId: 'removed',
     }),
     method: 'POST',
   });
-  if (response.status !== 401) throw new Error(`Expected 401, got ${response.status}`);
-  return '401';
+  if (response.status !== 410) throw new Error(`Expected 410, got ${response.status}`);
+  return '410';
 });
-
-if (verificationSessionToken) {
-  await record('Authenticated payment create uses production callback origin', async () => {
-    const { body, response } = await fetchJson('/api/payments/create', {
-      body: JSON.stringify({
-        idempotencyKey: `verify-${randomUUID()}`,
-        origin: 'https://client-origin-must-be-ignored.example',
-        planId: verificationPlanId,
-      }),
-      headers: {
-        Authorization: `Bearer ${verificationSessionToken}`,
-      },
-      method: 'POST',
-    });
-    if (!response.ok) throw new Error(`Expected 200, got ${response.status}: ${JSON.stringify(body)}`);
-    if (body?.status !== 'pending') throw new Error(`Expected pending payment, got ${body?.status}`);
-    if (!String(body?.orderId || '').startsWith('gp_')) throw new Error('Payment orderId must use gp_ prefix');
-    if (body?.provider === 'stripe') {
-      if (!body?.sessionId) throw new Error('Stripe payment payload must include a sessionId');
-      if (!body?.checkoutUrl) throw new Error('Stripe payment payload must include a checkoutUrl');
-      if (!String(body.successUrl || '').startsWith(`${origin.origin}/payment/success?provider=stripe`)) {
-        throw new Error(`Unexpected Stripe successUrl ${body?.successUrl}`);
-      }
-      if (!String(body.failUrl || '').startsWith(`${origin.origin}/payment/fail?provider=stripe`)) {
-        throw new Error(`Unexpected Stripe failUrl ${body?.failUrl}`);
-      }
-    } else if (body?.provider === 'toss') {
-      if (!body?.clientKey) throw new Error('Toss payment payload must include a client key');
-      if (body?.successUrl !== `${origin.origin}/payment/success`) {
-        throw new Error(`Unexpected Toss successUrl ${body?.successUrl}`);
-      }
-      if (body?.failUrl !== `${origin.origin}/payment/fail`) {
-        throw new Error(`Unexpected Toss failUrl ${body?.failUrl}`);
-      }
-    } else {
-      throw new Error(`Unexpected payment provider ${body?.provider}`);
-    }
-    if (!Number.isInteger(Number(body?.amount)) || Number(body.amount) <= 0) {
-      throw new Error(`Payment amount must be positive, got ${body?.amount}`);
-    }
-    return `${verificationPlanId} pending checkout payload`;
-  });
-}
 
 await record('Moderation API rejects missing admin token', async () => {
   const { response } = await fetchJson('/api/moderation/reports');

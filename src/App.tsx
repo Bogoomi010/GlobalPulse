@@ -1,12 +1,9 @@
 import {
   AlertTriangle,
-  BadgeDollarSign,
   BarChart3,
   CheckCircle2,
   ChevronRight,
-  CircleDollarSign,
   Clock3,
-  CreditCard,
   EyeOff,
   Flame,
   Globe2,
@@ -18,7 +15,6 @@ import {
   ThumbsDown,
   ThumbsUp,
   User,
-  Wallet,
   X,
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
@@ -26,7 +22,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 type Category = 'World' | 'Tech' | 'Business' | 'Culture' | 'Science' | 'Sports' | 'Internet';
 type SortKey = 'Hot' | 'New' | 'Most Liked' | 'Most Disliked' | 'Most Divided' | 'Most Commented';
 type Reaction = 'like' | 'dislike';
-type View = 'feed' | 'wallet' | 'about' | 'policy' | 'moderation';
+type View = 'feed' | 'about' | 'policy' | 'moderation';
 type ModerationStatus = 'open' | 'reviewed' | 'all';
 type ModerationAction = 'hide' | 'restore' | 'dismiss';
 
@@ -70,26 +66,6 @@ type SessionUser = {
   sessionToken?: string;
 };
 
-type WalletTransaction = {
-  id: string;
-  type: 'topup' | 'comment_spend' | 'refund' | 'adjustment' | 'failed_payment';
-  amount: number;
-  status: 'pending' | 'completed' | 'failed' | 'cancelled';
-  label: string;
-  reference?: string;
-  createdAt: string;
-};
-
-type PaymentPlan = {
-  id: string;
-  country: string;
-  currency: string;
-  amount: number;
-  label: string;
-  provider: string;
-  providerPriceId?: string | null;
-};
-
 type ModerationReport = {
   commentId: string;
   issueId: string;
@@ -112,25 +88,6 @@ type ModerationReport = {
   lastReportedAt: string;
 };
 
-type PaymentReturn =
-  | {
-      kind: 'success';
-      provider: string;
-      paymentKey: string;
-      orderId: string;
-      amount: number;
-      sessionId?: string;
-      status: 'confirming' | 'paid' | 'failed';
-      message?: string;
-    }
-  | {
-      kind: 'fail';
-      orderId: string;
-      code: string;
-      message: string;
-      status: 'recording' | 'recorded' | 'failed';
-    };
-
 type AuthStep = 'details' | 'code';
 
 type PendingAuth = {
@@ -138,34 +95,6 @@ type PendingAuth = {
   displayName: string;
   countryCode: string;
 };
-
-type TossPaymentRequest = {
-  method: 'CARD';
-  amount: {
-    currency: string;
-    value: number;
-  };
-  orderId: string;
-  orderName: string;
-  successUrl: string;
-  failUrl: string;
-  customerEmail?: string;
-  customerName?: string;
-};
-
-type TossPaymentWindow = {
-  requestPayment: (request: TossPaymentRequest) => Promise<void>;
-};
-
-type TossPaymentsClient = {
-  payment: (params: { customerKey: string }) => TossPaymentWindow;
-};
-
-declare global {
-  interface Window {
-    TossPayments?: (clientKey: string) => TossPaymentsClient;
-  }
-}
 
 const categories: Category[] = ['World', 'Tech', 'Business', 'Culture', 'Science', 'Sports', 'Internet'];
 const sortTabs: SortKey[] = [
@@ -175,14 +104,6 @@ const sortTabs: SortKey[] = [
   'Most Disliked',
   'Most Divided',
   'Most Commented',
-];
-
-const paymentPlans: PaymentPlan[] = [
-  { id: 'krw-1000-stripe', country: 'WW', currency: 'KRW', amount: 1000, label: '1,000원', provider: 'stripe' },
-  { id: 'krw-2000-stripe', country: 'WW', currency: 'KRW', amount: 2000, label: '2,000원', provider: 'stripe' },
-  { id: 'krw-3000-stripe', country: 'WW', currency: 'KRW', amount: 3000, label: '3,000원', provider: 'stripe' },
-  { id: 'krw-5000-stripe', country: 'WW', currency: 'KRW', amount: 5000, label: '5,000원', provider: 'stripe' },
-  { id: 'krw-10000-stripe', country: 'WW', currency: 'KRW', amount: 10000, label: '10,000원', provider: 'stripe' },
 ];
 
 const seedIssues: Issue[] = [
@@ -499,55 +420,12 @@ const seedIssues: Issue[] = [
   },
 ];
 
-const commentCost = 100;
-const tossSdkUrl = 'https://js.tosspayments.com/v2/standard';
+const freeCommentCost = 0;
 
 const formatCount = (value: number) => {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
   return value.toString();
-};
-
-const formatWon = (value: number) => `${value.toLocaleString('ko-KR')}원`;
-
-const transactionTypeLabel: Record<WalletTransaction['type'], string> = {
-  topup: 'Top-up',
-  comment_spend: 'Comment',
-  refund: 'Refund',
-  adjustment: 'Adjust',
-  failed_payment: 'Payment',
-};
-
-const transactionStatusLabel: Record<WalletTransaction['status'], string> = {
-  pending: 'Pending',
-  completed: 'Completed',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-};
-
-const getTransactionTone = (transaction: WalletTransaction) => {
-  if (transaction.status === 'failed' || transaction.status === 'cancelled') {
-    return {
-      amountClass: 'text-slate-400',
-      badgeClass: 'border-slate-500/30 bg-slate-500/10 text-slate-300',
-    };
-  }
-  if (transaction.status === 'pending') {
-    return {
-      amountClass: 'text-amber-200',
-      badgeClass: 'border-amber-300/30 bg-amber-300/10 text-amber-100',
-    };
-  }
-  if (transaction.amount >= 0) {
-    return {
-      amountClass: 'text-emerald-200',
-      badgeClass: 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100',
-    };
-  }
-  return {
-    amountClass: 'text-rose-200',
-    badgeClass: 'border-rose-300/30 bg-rose-300/10 text-rose-100',
-  };
 };
 
 const getReactionStats = (issue: Issue) => {
@@ -617,90 +495,6 @@ const authHeaders = (user: SessionUser | null): HeadersInit =>
 const moderationHeaders = (token: string): HeadersInit =>
   token ? { Authorization: `Bearer ${token}` } : {};
 
-const parsePaymentReturn = (): PaymentReturn | null => {
-  const url = new URL(window.location.href);
-  if (url.pathname === '/payment/success') {
-    const provider = url.searchParams.get('provider') ?? 'toss';
-    if (provider === 'stripe') {
-      const sessionId = url.searchParams.get('session_id') ?? '';
-      if (!sessionId) {
-        return {
-          kind: 'success',
-          provider,
-          paymentKey: '',
-          orderId: '',
-          amount: 0,
-          status: 'failed',
-          message: 'Stripe Checkout 세션 ID가 없습니다.',
-        };
-      }
-      return {
-        kind: 'success',
-        provider,
-        paymentKey: sessionId,
-        sessionId,
-        orderId: sessionId,
-        amount: 0,
-        status: 'confirming',
-      };
-    }
-
-    const paymentKey = url.searchParams.get('paymentKey') ?? '';
-    const orderId = url.searchParams.get('orderId') ?? '';
-    const amount = Number(url.searchParams.get('amount'));
-    if (!paymentKey || !orderId || !Number.isFinite(amount)) {
-      return {
-        kind: 'success',
-        provider,
-        paymentKey,
-        orderId,
-        amount: 0,
-        status: 'failed',
-        message: '결제 성공 URL의 필수 파라미터가 없습니다.',
-      };
-    }
-    return { kind: 'success', provider, paymentKey, orderId, amount, status: 'confirming' };
-  }
-
-  if (url.pathname === '/payment/fail') {
-    return {
-      kind: 'fail',
-      orderId: url.searchParams.get('orderId') ?? '',
-      code: url.searchParams.get('code') ?? 'PAYMENT_FAILED',
-      message: url.searchParams.get('message') ?? '결제 인증이 실패하거나 취소되었습니다.',
-      status: 'recording',
-    };
-  }
-
-  return null;
-};
-
-const loadTossPayments = async (clientKey: string): Promise<TossPaymentsClient> => {
-  if (window.TossPayments) return window.TossPayments(clientKey);
-
-  await new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${tossSdkUrl}"]`);
-    if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error('Toss Payments SDK load failed')), {
-        once: true,
-      });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = tossSdkUrl;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Toss Payments SDK load failed'));
-    document.head.appendChild(script);
-  });
-
-  const tossFactory = window.TossPayments as ((key: string) => TossPaymentsClient) | undefined;
-  if (!tossFactory) throw new Error('Toss Payments SDK is unavailable');
-  return tossFactory(clientKey);
-};
-
 export default function App() {
   const [issues, setIssues] = useState<Issue[]>(() => readJson('globalpulse:issues', seedIssues));
   const [comments, setComments] = useState<Comment[]>(() => readJson('globalpulse:comments', []));
@@ -708,11 +502,6 @@ export default function App() {
     readJson('globalpulse:reactions', {}),
   );
   const [user, setUser] = useState<SessionUser | null>(() => readJson('globalpulse:user', null));
-  const [balance, setBalance] = useState(() => readJson('globalpulse:balance', 0));
-  const [transactions, setTransactions] = useState<WalletTransaction[]>(() =>
-    readJson('globalpulse:transactions', []),
-  );
-  const [availablePlans, setAvailablePlans] = useState<PaymentPlan[]>(paymentPlans);
   const [anonymousToken] = useState(getOrCreateAnonymousToken);
   const [apiOnline, setApiOnline] = useState(false);
   const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
@@ -725,8 +514,6 @@ export default function App() {
   const [pendingAuth, setPendingAuth] = useState<PendingAuth | null>(null);
   const [authMessage, setAuthMessage] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'blocked' | 'pending' | 'success' | 'failed'>('idle');
-  const [paymentReturn, setPaymentReturn] = useState<PaymentReturn | null>(parsePaymentReturn);
   const [moderationToken, setModerationToken] = useState(() => localStorage.getItem('globalpulse:moderation-token') ?? '');
   const [moderationStatus, setModerationStatus] = useState<ModerationStatus>('open');
   const [moderationReports, setModerationReports] = useState<ModerationReport[]>([]);
@@ -758,11 +545,7 @@ export default function App() {
       if (cancelled) return;
       if (!data) {
         setUser(null);
-        setBalance(0);
-        setTransactions([]);
         localStorage.removeItem('globalpulse:user');
-        localStorage.removeItem('globalpulse:balance');
-        localStorage.removeItem('globalpulse:transactions');
         return;
       }
       setApiOnline(true);
@@ -774,28 +557,6 @@ export default function App() {
       cancelled = true;
     };
   }, [activeSessionToken]);
-
-  useEffect(() => {
-    if (!user?.sessionToken || view !== 'wallet') return;
-    let cancelled = false;
-    const url = `/api/wallet?countryCode=${encodeURIComponent(user.countryCode)}`;
-    void requestJson<{
-      wallet: { balance: number };
-      transactions: WalletTransaction[];
-      plans: PaymentPlan[];
-    }>(url, { headers: authHeaders(user) }).then((data) => {
-      if (cancelled || !data) return;
-      setApiOnline(true);
-      setBalance(data.wallet.balance);
-      setTransactions(data.transactions);
-      if (data.plans.length) setAvailablePlans(data.plans);
-      writeJson('globalpulse:balance', data.wallet.balance);
-      writeJson('globalpulse:transactions', data.transactions);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [user, view]);
 
   useEffect(() => {
     if (!activeIssueId) return;
@@ -841,64 +602,6 @@ export default function App() {
     };
   }, [moderationStatus, moderationToken, view]);
 
-  useEffect(() => {
-    if (!paymentReturn) return;
-    if (paymentReturn.kind === 'success' && paymentReturn.status === 'confirming') {
-      const confirmationKey = `globalpulse:payment-confirm:${paymentReturn.orderId}:${paymentReturn.paymentKey}`;
-      if (sessionStorage.getItem(confirmationKey)) return;
-      sessionStorage.setItem(confirmationKey, '1');
-
-      void requestJson<{
-        status: 'paid' | 'failed';
-        wallet?: { balance: number };
-        alreadyProcessed?: boolean;
-      }>('/api/payments/confirm', {
-        method: 'POST',
-        body: JSON.stringify(
-          paymentReturn.provider === 'stripe'
-            ? { sessionId: paymentReturn.sessionId || paymentReturn.paymentKey }
-            : {
-                paymentKey: paymentReturn.paymentKey,
-                orderId: paymentReturn.orderId,
-                amount: paymentReturn.amount,
-              },
-        ),
-      }).then((data) => {
-        if (data?.status === 'paid') {
-          setApiOnline(true);
-          setPaymentStatus('success');
-          if (typeof data.wallet?.balance === 'number') {
-            setBalance(data.wallet.balance);
-            writeJson('globalpulse:balance', data.wallet.balance);
-          }
-          setPaymentReturn({ ...paymentReturn, status: 'paid' });
-          return;
-        }
-        setPaymentStatus('failed');
-        setPaymentReturn({
-          ...paymentReturn,
-          status: 'failed',
-          message: '결제 승인이 실패했습니다. 서버 금액 검증 또는 결제사 승인 결과를 확인하세요.',
-        });
-      });
-    }
-
-    if (paymentReturn.kind === 'fail' && paymentReturn.status === 'recording') {
-      void requestJson<{ status: 'failed' | 'cancelled'; updated: boolean }>('/api/payments/fail', {
-        method: 'POST',
-        body: JSON.stringify({
-          orderId: paymentReturn.orderId,
-          code: paymentReturn.code,
-          message: paymentReturn.message,
-        }),
-      }).then((data) => {
-        if (data) setApiOnline(true);
-        setPaymentStatus('failed');
-        setPaymentReturn({ ...paymentReturn, status: data ? 'recorded' : 'failed' });
-      });
-    }
-  }, [paymentReturn]);
-
   const filteredIssues = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     const list = issues.filter((issue) => {
@@ -940,11 +643,6 @@ export default function App() {
   const persistComments = (next: Comment[]) => {
     setComments(next);
     writeJson('globalpulse:comments', next);
-  };
-
-  const persistTransactions = (next: WalletTransaction[]) => {
-    setTransactions(next);
-    writeJson('globalpulse:transactions', next);
   };
 
   const handleReaction = (issueId: string, nextReaction: Reaction) => {
@@ -995,18 +693,10 @@ export default function App() {
     setAuthBusy(false);
   };
 
-  const finishLogin = (
-    nextUser: SessionUser,
-    wallet?: { balance: number },
-    online = false,
-  ) => {
+  const finishLogin = (nextUser: SessionUser, online = false) => {
     setApiOnline(online);
     setUser(nextUser);
     writeJson('globalpulse:user', nextUser);
-    if (wallet) {
-      setBalance(wallet.balance);
-      writeJson('globalpulse:balance', wallet.balance);
-    }
     closeAuth();
   };
 
@@ -1019,10 +709,10 @@ export default function App() {
       body: JSON.stringify(auth),
     });
     if (data) {
-      finishLogin(data.user, data.wallet, true);
+      finishLogin(data.user, true);
       return;
     }
-    finishLogin(auth, undefined, false);
+    finishLogin(auth, false);
   };
 
   const handleLogin = (event: FormEvent<HTMLFormElement>) => {
@@ -1046,7 +736,7 @@ export default function App() {
           setAuthMessage('인증 코드가 맞지 않거나 만료되었습니다.');
           return;
         }
-        finishLogin(data.user, data.wallet, true);
+        finishLogin(data.user, true);
       });
       return;
     }
@@ -1089,130 +779,12 @@ export default function App() {
       });
     }
     setUser(null);
-    setBalance(0);
-    setTransactions([]);
     localStorage.removeItem('globalpulse:user');
-    localStorage.removeItem('globalpulse:balance');
-    localStorage.removeItem('globalpulse:transactions');
-  };
-
-  const handlePaymentAttempt = (plan: PaymentPlan) => {
-    if (!user) {
-      setAuthOpen(true);
-      return;
-    }
-    if (!user.id || !user.sessionToken) {
-      setPaymentStatus('blocked');
-      const tx: WalletTransaction = {
-        id: crypto.randomUUID(),
-        type: 'failed_payment',
-        amount: plan.amount,
-        status: 'failed',
-        label: `${plan.label} payment blocked: server session required`,
-        createdAt: new Date().toISOString(),
-      };
-      persistTransactions([tx, ...transactions]);
-      setAuthOpen(true);
-      return;
-    }
-
-    const userId = user.id;
-    const idempotencyKey = crypto.randomUUID();
-    void requestJson<{
-      provider: string;
-      paymentId: string;
-      orderId: string;
-      orderName: string;
-      amount: number;
-      currency: string;
-      status: 'pending';
-      clientKey?: string;
-      sessionId?: string;
-      checkoutUrl?: string;
-      successUrl: string;
-      failUrl: string;
-    }>('/api/payments/create', {
-      method: 'POST',
-      headers: authHeaders(user),
-      body: JSON.stringify({
-        planId: plan.id,
-        idempotencyKey,
-        origin: window.location.origin,
-      }),
-    }).then((data) => {
-      if (!data) {
-        setPaymentStatus('blocked');
-        return;
-      }
-      setApiOnline(true);
-      setPaymentStatus('pending');
-      const tx: WalletTransaction = {
-        id: data.paymentId,
-        type: 'topup',
-        amount: data.amount,
-        status: 'pending',
-        label: `${plan.label} pending ${data.provider === 'stripe' ? 'Stripe Checkout' : 'Toss payment'} · ${data.orderId}`,
-        createdAt: new Date().toISOString(),
-      };
-      persistTransactions([tx, ...transactions]);
-
-      if (data.checkoutUrl) {
-        window.location.assign(data.checkoutUrl);
-        return;
-      }
-
-      if (!data.clientKey) {
-        setPaymentStatus('failed');
-        const failedTx: WalletTransaction = {
-          id: crypto.randomUUID(),
-          type: 'failed_payment',
-          amount: data.amount,
-          status: 'failed',
-          label: 'Payment provider did not return a checkout URL or client key',
-          createdAt: new Date().toISOString(),
-        };
-        persistTransactions([failedTx, tx, ...transactions]);
-        return;
-      }
-
-      return loadTossPayments(data.clientKey)
-        .then((tossPayments) => {
-          const payment = tossPayments.payment({ customerKey: userId });
-          return payment.requestPayment({
-            method: 'CARD',
-            amount: {
-              currency: data.currency,
-              value: data.amount,
-            },
-            orderId: data.orderId,
-            orderName: data.orderName,
-            successUrl: data.successUrl,
-            failUrl: data.failUrl,
-            customerEmail: user.email,
-            customerName: user.displayName,
-          });
-        })
-        .catch((error: unknown) => {
-          setPaymentStatus('failed');
-          const failedTx: WalletTransaction = {
-            id: crypto.randomUUID(),
-            type: 'failed_payment',
-            amount: data.amount,
-            status: 'failed',
-            label:
-              error instanceof Error
-                ? `Payment window failed: ${error.message}`
-                : 'Payment window failed',
-            createdAt: new Date().toISOString(),
-          };
-          persistTransactions([failedTx, tx, ...transactions]);
-        });
-    });
   };
 
   const handleComment = (event: FormEvent<HTMLFormElement>, issueId: string) => {
     event.preventDefault();
-    if (!user || balance < commentCost) return;
+    if (!user) return;
     const form = new FormData(event.currentTarget);
     const content = String(form.get('comment') ?? '').trim();
     if (!content) return;
@@ -1221,7 +793,6 @@ export default function App() {
       const formElement = event.currentTarget;
       void requestJson<{
         comment?: Comment;
-        wallet?: { balance: number };
       }>('/api/comments', {
         method: 'POST',
         headers: authHeaders(user),
@@ -1233,13 +804,10 @@ export default function App() {
       }).then((data) => {
         if (!data?.comment) return;
         setApiOnline(true);
-        const nextBalance = data.wallet?.balance ?? balance - commentCost;
         const nextComments = [data.comment, ...comments];
         const nextIssues = issues.map((issue) =>
           issue.id === issueId ? { ...issue, comments: issue.comments + 1 } : issue,
         );
-        setBalance(nextBalance);
-        writeJson('globalpulse:balance', nextBalance);
         persistComments(nextComments);
         persistIssues(nextIssues);
         formElement.reset();
@@ -1253,29 +821,17 @@ export default function App() {
       userId: user.id ?? user.email,
       author: user.displayName,
       content,
-      cost: commentCost,
+      cost: freeCommentCost,
       createdAt: new Date().toISOString(),
       status: 'visible',
     };
-    const tx: WalletTransaction = {
-      id: crypto.randomUUID(),
-      type: 'comment_spend',
-      amount: -commentCost,
-      status: 'completed',
-      label: `Paid comment on ${issueId}`,
-      createdAt: new Date().toISOString(),
-    };
-    const nextBalance = balance - commentCost;
     const nextComments = [comment, ...comments];
     const nextIssues = issues.map((issue) =>
       issue.id === issueId ? { ...issue, comments: issue.comments + 1 } : issue,
     );
 
-    setBalance(nextBalance);
-    writeJson('globalpulse:balance', nextBalance);
     persistComments(nextComments);
     persistIssues(nextIssues);
-    persistTransactions([tx, ...transactions]);
     event.currentTarget.reset();
   };
 
@@ -1425,10 +981,6 @@ export default function App() {
               <ShieldAlert className="h-4 w-4" />
               Ops
             </button>
-            <button className="nav-pill" onClick={() => setView('wallet')}>
-              <Wallet className="h-4 w-4" />
-              <span className="hidden sm:inline">{formatWon(balance)}</span>
-            </button>
             {user ? (
               <button className="nav-pill" onClick={handleLogout} title={user.email}>
                 <User className="h-4 w-4" />
@@ -1445,18 +997,7 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 pb-20 pt-5">
-        {paymentReturn ? (
-          <PaymentResultView
-            result={paymentReturn}
-            onBackToWallet={() => {
-              setPaymentReturn(null);
-              setView('wallet');
-              window.history.replaceState(null, '', '/');
-            }}
-          />
-        ) : null}
-
-        {!paymentReturn && view === 'feed' ? (
+        {view === 'feed' ? (
           <>
             <section className="mb-5 grid gap-4 lg:grid-cols-[1fr_320px]">
               <div className="rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.22),_transparent_34%),linear-gradient(135deg,_rgba(15,23,42,0.96),_rgba(2,6,23,0.96))] p-5 shadow-2xl shadow-cyan-950/30 sm:p-7">
@@ -1468,7 +1009,7 @@ export default function App() {
                   전 세계 이슈 반응을 한눈에 보는 중립형 트렌드 대시보드
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                  GlobalPulse는 어떤 이슈의 정답을 단정하지 않고, 익명 반응과 유료 댓글 흐름을 분리해 보여줍니다.
+                  GlobalPulse는 어떤 이슈의 정답을 단정하지 않고, 익명 반응과 로그인 댓글 흐름을 분리해 보여줍니다.
                 </p>
               </div>
               <aside className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
@@ -1479,7 +1020,7 @@ export default function App() {
                   <Metric label="Comments" value={formatCount(issues.reduce((sum, issue) => sum + issue.comments, 0))} />
                 </div>
                 <p className="mt-5 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">
-                  Stripe 테스트 결제는 결제 제공자 페이지에서 처리되며, 카드번호 등 민감한 결제 정보는 저장하지 않습니다.
+                  결제 기능은 제거되었습니다. 로그인 사용자는 별도 충전 없이 무료로 댓글을 작성할 수 있습니다.
                 </p>
                 <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-xs leading-5 text-slate-400">
                   Data mode: {apiOnline ? 'D1 API connected' : 'local fallback'}
@@ -1540,21 +1081,9 @@ export default function App() {
           </>
         ) : null}
 
-        {!paymentReturn && view === 'wallet' ? (
-          <WalletView
-            balance={balance}
-            onPaymentAttempt={handlePaymentAttempt}
-            paymentStatus={paymentStatus}
-            plans={availablePlans}
-            transactions={transactions}
-            user={user}
-            onLogin={() => setAuthOpen(true)}
-          />
-        ) : null}
-
-        {!paymentReturn && view === 'about' ? <InfoPage type="about" /> : null}
-        {!paymentReturn && view === 'policy' ? <InfoPage type="policy" /> : null}
-        {!paymentReturn && view === 'moderation' ? (
+        {view === 'about' ? <InfoPage type="about" /> : null}
+        {view === 'policy' ? <InfoPage type="policy" /> : null}
+        {view === 'moderation' ? (
           <ModerationView
             busy={moderationBusy}
             message={moderationMessage}
@@ -1571,7 +1100,6 @@ export default function App() {
 
       {activeIssue ? (
         <IssueModal
-          balance={balance}
           comments={visibleComments}
           issue={activeIssue}
           onClose={() => setActiveIssueId(null)}
@@ -1747,7 +1275,6 @@ function IssueModal({
   reaction,
   comments,
   user,
-  balance,
   onClose,
   onReact,
   onComment,
@@ -1759,7 +1286,6 @@ function IssueModal({
   reaction?: Reaction;
   comments: Comment[];
   user: SessionUser | null;
-  balance: number;
   onClose: () => void;
   onReact: (issueId: string, reaction: Reaction) => void;
   onComment: (event: FormEvent<HTMLFormElement>, issueId: string) => void;
@@ -1768,7 +1294,7 @@ function IssueModal({
   onReportComment: (commentId: string) => void;
 }) {
   const stats = getReactionStats(issue);
-  const canComment = Boolean(user && balance >= commentCost);
+  const canComment = Boolean(user);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 p-0 sm:p-4">
@@ -1819,23 +1345,19 @@ function IssueModal({
           </div>
           <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-black">Paid comments</h3>
+              <h3 className="font-black">Comments</h3>
               <span className="text-sm text-slate-400">{comments.length} visible</span>
             </div>
             {!user ? (
               <button className="primary-button w-full" onClick={onLogin}>
-                Login to write a paid comment
+                Login to write a comment
               </button>
-            ) : balance < commentCost ? (
-              <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">
-                잔액이 부족합니다. 댓글 작성에는 100원이 필요합니다.
-              </div>
             ) : (
               <form className="grid gap-3" onSubmit={(event) => onComment(event, issue.id)}>
                 <textarea className="form-input min-h-24" name="comment" maxLength={500} placeholder="의견을 입력하세요" required />
-                <p className="text-xs text-slate-400">댓글 작성 시 100원이 차감됩니다. 유료 댓글은 사실성이나 신뢰도를 의미하지 않습니다.</p>
+                <p className="text-xs text-slate-400">댓글 작성은 무료입니다. 댓글은 사실성이나 신뢰도를 의미하지 않습니다.</p>
                 <button className="primary-button" disabled={!canComment}>
-                  Pay 100원 and comment
+                  Comment
                 </button>
               </form>
             )}
@@ -1855,7 +1377,7 @@ function IssueModal({
                         </span>
                       ) : null}
                     </div>
-                    <span className="text-xs text-slate-500">{formatWon(comment.cost)} spent</span>
+                    <span className="text-xs text-slate-500">free</span>
                   </div>
                   <p className="text-sm leading-6 text-slate-300">{comment.content}</p>
                   <div className="mt-3 flex flex-wrap gap-3">
@@ -1883,184 +1405,6 @@ function IssueModal({
         </div>
       </div>
     </div>
-  );
-}
-
-function WalletView({
-  user,
-  balance,
-  transactions,
-  paymentStatus,
-  plans,
-  onPaymentAttempt,
-  onLogin,
-}: {
-  user: SessionUser | null;
-  balance: number;
-  transactions: WalletTransaction[];
-  paymentStatus: 'idle' | 'blocked' | 'pending' | 'success' | 'failed';
-  plans: PaymentPlan[];
-  onPaymentAttempt: (plan: PaymentPlan) => void;
-  onLogin: () => void;
-}) {
-  return (
-    <section className="grid gap-4 lg:grid-cols-[360px_1fr]">
-      <aside className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-        <p className="text-sm uppercase tracking-[0.2em] text-slate-400">My wallet</p>
-        <p className="mt-3 text-5xl font-black">{formatWon(balance)}</p>
-        <p className="mt-3 text-sm leading-6 text-slate-400">충전 금액은 댓글 작성에 사용됩니다.</p>
-        {!user ? (
-          <button className="primary-button mt-5 w-full" onClick={onLogin}>
-            Login required
-          </button>
-        ) : null}
-        {paymentStatus === 'blocked' ? (
-          <p className="mt-5 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-3 text-sm leading-6 text-amber-100">
-            결제 설정이 아직 완료되지 않았습니다. 서버 결제 secret, callback origin, webhook 설정을 확인해야 합니다.
-          </p>
-        ) : null}
-        {paymentStatus === 'pending' ? (
-          <p className="mt-5 rounded-2xl border border-cyan-300/30 bg-cyan-300/10 p-3 text-sm leading-6 text-cyan-100">
-            결제 요청이 생성되었습니다. 실제 잔액 증가는 결제사 승인 후 `/api/payments/confirm` 또는 webhook에서 처리됩니다.
-          </p>
-        ) : null}
-      </aside>
-      <div className="grid gap-4">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-cyan-200" />
-            <h2 className="text-xl font-black">Top-up plans</h2>
-          </div>
-          <p className="mb-4 text-sm leading-6 text-slate-400">
-            결제 전 최종 금액, 통화, 환불 정책을 확인해야 합니다. 실제 서비스 출시 전 국가별 세금, 환불, 결제 규정은 운영자가 확인해야 합니다.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {plans.map((plan) => (
-              <button className="plan-card" key={plan.id} onClick={() => onPaymentAttempt(plan)}>
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-                  {plan.country === 'WW' ? 'GLOBAL' : plan.country} · {plan.provider}
-                </span>
-                <span className="mt-2 block text-3xl font-black">{plan.label}</span>
-                <span className="mt-3 inline-flex items-center gap-2 text-sm text-cyan-200">
-                  <CircleDollarSign className="h-4 w-4" />
-                  Select plan
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <BadgeDollarSign className="h-5 w-5 text-cyan-200" />
-            <h2 className="text-xl font-black">Transaction history</h2>
-          </div>
-          <div className="grid gap-2">
-            {transactions.map((tx) => (
-              <TransactionRow key={tx.id} tx={tx} />
-            ))}
-            {!transactions.length ? <p className="text-sm text-slate-500">거래 내역이 없습니다.</p> : null}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TransactionRow({ tx }: { tx: WalletTransaction }) {
-  const tone = getTransactionTone(tx);
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#070A12] p-3">
-      <div className="min-w-0">
-        <div className="mb-1 flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
-            {transactionTypeLabel[tx.type]}
-          </span>
-          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.14em] ${tone.badgeClass}`}>
-            {transactionStatusLabel[tx.status]}
-          </span>
-        </div>
-        <p className="break-words font-bold">{tx.label}</p>
-        <p className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleString('ko-KR')}</p>
-        {tx.reference ? <p className="mt-1 break-all text-[11px] text-slate-600">{tx.reference}</p> : null}
-      </div>
-      <span className={`ml-auto font-black ${tone.amountClass}`}>{formatWon(tx.amount)}</span>
-    </div>
-  );
-}
-
-function PaymentResultView({
-  result,
-  onBackToWallet,
-}: {
-  result: PaymentReturn;
-  onBackToWallet: () => void;
-}) {
-  const isSuccess = result.kind === 'success';
-  const isDone = isSuccess ? result.status === 'paid' : result.status === 'recorded';
-  const isFailed = result.status === 'failed';
-  const title = isSuccess
-    ? result.status === 'confirming'
-      ? '결제 승인 확인 중'
-      : result.status === 'paid'
-        ? '결제 성공'
-        : '결제 승인 실패'
-    : result.status === 'recording'
-      ? '결제 실패 기록 중'
-      : '결제 실패';
-
-  return (
-    <section className="mx-auto max-w-2xl rounded-3xl border border-white/10 bg-white/[0.04] p-6">
-      <div
-        className={`mb-5 grid h-14 w-14 place-items-center rounded-2xl ${
-          isDone ? 'bg-emerald-300 text-slate-950' : isFailed ? 'bg-rose-300 text-slate-950' : 'bg-cyan-300 text-slate-950'
-        }`}
-      >
-        {isDone ? <CheckCircle2 className="h-7 w-7" /> : <CreditCard className="h-7 w-7" />}
-      </div>
-      <h1 className="text-3xl font-black">{title}</h1>
-      <p className="mt-3 text-sm leading-6 text-slate-300">
-        {isSuccess
-          ? '결제사 인증 결과를 서버에서 금액 검증 후 승인합니다. 지갑 잔액은 서버 승인이 완료된 뒤에만 증가합니다.'
-          : '결제 실패 또는 취소는 잔액을 증가시키지 않으며, 결제 상태만 서버에 기록합니다.'}
-      </p>
-      <div className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-[#070A12] p-4 text-sm">
-        <div className="flex justify-between gap-4">
-          <span className="text-slate-500">Order ID</span>
-          <span className="break-all text-right font-bold">{result.orderId || '-'}</span>
-        </div>
-        {isSuccess ? (
-          <>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-500">Amount</span>
-              <span className="font-bold">{result.amount > 0 ? formatWon(result.amount) : '서버 검증'}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-500">{result.provider === 'stripe' ? 'Session ID' : 'Payment key'}</span>
-              <span className="break-all text-right font-bold">{result.paymentKey || '-'}</span>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-500">Code</span>
-              <span className="break-all text-right font-bold">{result.code}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-500">Message</span>
-              <span className="break-all text-right font-bold">{result.message}</span>
-            </div>
-          </>
-        )}
-      </div>
-      {'message' in result && result.message ? (
-        <p className="mt-4 rounded-2xl border border-rose-300/30 bg-rose-300/10 p-3 text-sm leading-6 text-rose-100">
-          {result.message}
-        </p>
-      ) : null}
-      <button className="primary-button mt-6 w-full" onClick={onBackToWallet}>
-        지갑으로 돌아가기
-      </button>
-    </section>
   );
 }
 
@@ -2236,14 +1580,14 @@ function InfoPage({ type }: { type: 'about' | 'policy' }) {
       {isAbout ? (
         <div className="grid gap-4 text-sm leading-6 text-slate-300">
           <p>GlobalPulse는 글로벌 핫이슈에 대한 익명 글로벌 반응을 보여주는 대시보드입니다. 이 서비스는 정답, 사실 확정, 진실 판정을 제공하지 않습니다.</p>
-          <p>좋아요/싫어요는 로그인 없이 가능하고, 댓글은 로그인한 사용자가 충전 잔액에서 100원을 지불해 작성하는 구조입니다.</p>
+          <p>좋아요/싫어요는 로그인 없이 가능하고, 댓글은 로그인한 사용자가 무료로 작성하는 구조입니다.</p>
           <p>뉴스 API, Google Trends, Reddit, Hacker News, X Trends 연동은 데이터 레이어를 통해 추후 연결하는 것을 전제로 합니다.</p>
         </div>
       ) : (
         <div className="grid gap-4 text-sm leading-6 text-slate-300">
-          <p>결제, 환불, 세금, 미성년자 결제, 개인정보 처리, 댓글 모더레이션은 실제 운영 전 법무/세무/결제사 정책 확인이 필요합니다.</p>
-          <p>카드번호 등 민감한 결제 정보는 GlobalPulse가 직접 저장하지 않고 결제 제공자에게 위임해야 합니다.</p>
-          <p>결제 webhook은 provider 서명 검증과 중복 처리 방지 로직을 포함해야 하며, 같은 payment_id로 잔액이 중복 증가하면 안 됩니다.</p>
+          <p>개인정보 처리, 댓글 모더레이션, 신고 대응은 실제 운영 전 운영자가 정책과 절차를 확인해야 합니다.</p>
+          <p>GlobalPulse는 카드번호 등 민감한 결제 정보를 수집하거나 저장하지 않습니다.</p>
+          <p>댓글은 운영 검토 대상이 될 수 있으며, 신고된 댓글은 숨김, 복원, 기각 처리될 수 있습니다.</p>
         </div>
       )}
     </section>

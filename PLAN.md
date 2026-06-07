@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build GlobalPulse as a mobile-first global issue reaction dashboard where anonymous visitors can react with like/dislike, signed-in users can top up wallet balance through a real payment provider, and paid comments cost 100 KRW each.
+Build GlobalPulse as a mobile-first global issue reaction dashboard where anonymous visitors can react with like/dislike and signed-in users can write free comments. The product does not include payment, wallet top-up, paid comments, or payment-provider integration.
 
 ## Current Milestone
 
@@ -12,36 +12,32 @@ This repository now contains the frontend MVP shell plus the first production AP
 - 20 neutral dummy issues across required categories
 - Search, category filters, and required sort tabs
 - Like/dislike optimistic UI with D1 API support and localStorage fallback
-- Issue detail modal with sources, reaction split, comments, and moderation notes
-- Login, wallet, top-up plan, transaction history, about, and policy screens
-- Browser-based moderation ops screen for reviewing reported paid comments with an admin token
-- Transaction history shows readable labels, payment statuses, and refund/comment/top-up transaction types
-- Cloudflare Pages Functions for issues, anonymous reactions, login, wallet, paid comments, reports, and Stripe payment create/confirm/webhook
-- D1 migrations for schema, payment plans, and dummy issue seed data
-- Server-issued session tokens protect wallet, paid comment, and payment creation APIs
+- Issue detail modal with sources, reaction split, free comments, and moderation notes
+- Login, about, policy, and moderation ops screens
+- Browser-based moderation ops screen for reviewing reported comments with an admin token
+- Cloudflare Pages Functions for issues, anonymous reactions, login, wallet compatibility, free comments, reports, and disabled payment endpoints
+- D1 migrations for schema, disabled payment plans, free-comment support, and dummy issue seed data
+- Server-issued session tokens protect comments and wallet compatibility APIs
 - Stored sessions can be checked through `/api/auth/me` and revoked through `/api/auth/logout`
 - Email OTP login endpoints are prepared for production through Resend, with demo login allowed only by explicit local binding
 - Comment reports are idempotent per anonymous session to reduce moderation queue spam
 - Token-protected moderation API and ops screen list reported comments and record hide/restore/dismiss review actions
-- Local full-stack smoke test runs Pages Functions with local D1 through Wrangler, verifies OTP login with local-only email log delivery, and exercises Stripe Checkout confirmation/webhook flows plus webhook signature enforcement through a local provider mock
-- API smoke coverage verifies anonymous reaction add, switch, cancel, and `/api/issues` aggregate persistence
-- Production deploy gate blocks deployment when D1, Stripe live payment secrets, moderation admin token, fixed payment callback origin, or verified email auth settings are missing
+- Local full-stack smoke test runs Pages Functions with local D1 through Wrangler and verifies OTP login, reactions, free comments, reporting, moderation, logout, and disabled payment endpoints
+- Production deploy gate blocks deployment when D1, session secret, moderation admin token, public origin, launch review acknowledgement, or verified email auth settings are missing
 - Production D1 migration script shares the local migration list and requires an explicit confirmation value before applying remote migrations
-- Production URL verification script checks the public app, D1 issue seed count, protected API behavior, payment return routes, moderation protection, and optional Resend OTP delivery
-- Production URL verification can optionally create an authenticated pending Stripe Checkout payload to verify callback URLs without charging
-- Launch review acknowledgement gate blocks production readiness until legal, tax, refund, minor payment, privacy, security, payment provider, and moderation review is explicitly completed
-- Payment blocked state when provider environment variables are missing
-- Payment server code now routes create/confirm/webhook flows through a provider adapter, with Stripe Checkout as the global default and Toss retained as a secondary adapter
+- Production URL verification script checks the public app, D1 issue seed count, protected API behavior, disabled payment API behavior, moderation protection, and optional Resend OTP delivery
 
 ## Milestones
 
 1. Data model
-   - Add D1 schema for issues, sources, sessions, reactions, users, wallets, transactions, payment plans, payments, comments, and reports.
-   - Seed dummy issues and KRW Stripe payment plans.
+   - Done: Add D1 schema for issues, sources, sessions, reactions, users, wallets, comments, and reports.
+   - Done: Seed dummy issues.
+   - Done: Disable legacy payment plans and support zero-cost comments.
 
 2. UI
-   - Replace placeholder shop with GlobalPulse feed, filters, sorting, details, wallet, and policy screens.
-   - Preserve neutral wording and "Anonymous global reaction" language.
+   - Done: Replace placeholder shop with GlobalPulse feed, filters, sorting, details, free comments, and policy screens.
+   - Done: Remove top-up, wallet balance, and payment return screens.
+   - Done: Preserve neutral wording and "Anonymous global reaction" language.
 
 3. Anonymous reactions
    - Done: Frontend creates an anonymous local token and uses optimistic state.
@@ -49,58 +45,43 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Toggle, cancel, and switch semantics are implemented in `/api/reactions`.
    - Done: Smoke tests verify reaction count persistence through `/api/issues`.
 
-4. Authentication and wallet
-   - Done: `/api/auth/login` creates user and wallet records on first login.
+4. Authentication
+   - Done: `/api/auth/login` creates user and compatibility wallet records on first login.
    - Done: Login returns a server-issued session token stored only as a hash in D1.
-   - Done: Wallet, paid comments, and payment creation require Bearer session authentication.
+   - Done: Comments require Bearer session authentication.
    - Done: `/api/auth/request-code` and `/api/auth/verify-code` support verified email OTP login through Resend.
    - Done: `/api/auth/me` verifies stored sessions and `/api/auth/logout` revokes them server-side.
    - Remaining: Configure Resend production sender/domain and verify end-to-end email delivery in deployment.
 
-5. Paid comments
-   - Done: `/api/comments` inserts a comment, subtracts 100 KRW, and inserts a wallet transaction in one D1 batch.
-   - Done: Idempotency key prevents duplicate charge/comment writes.
+5. Comments and moderation
+   - Done: `/api/comments` inserts a free comment without wallet debit.
+   - Done: Comment idempotency key prevents duplicate comment writes.
    - Done: Comment reports are unique per comment and anonymous reporter session.
    - Done: `/api/moderation/reports` lets token-authenticated operators list reports and hide, restore, or dismiss reported comments.
    - Done: The frontend ops screen can connect with `MODERATION_ADMIN_TOKEN` and review reported comments without exposing the token in deployment env.
 
 6. Payments
-   - Done: Stripe Checkout create/confirm/fail/webhook endpoints are implemented.
-   - Done: Browser payment launch redirects to hosted Stripe Checkout.
-   - Done: `/payment/success` confirms the payment server-side.
-   - Done: `/payment/fail` records failure or cancellation without increasing wallet balance.
-   - Done: Server-side amount verification is required before wallet credit is applied.
-   - Done: Payment status transitions and duplicate paid payment checks are implemented before wallet top-up.
-   - Done: Payment creation idempotency returns the original pending payment payload on duplicate requests.
-   - Done: Payment provider adapter boundary is in place so additional providers can be added without rewriting wallet logic.
-   - Done: Local smoke test configures `STRIPE_WEBHOOK_SECRET` and verifies missing or invalid Stripe webhook signatures are rejected.
-   - Done: Payment webhooks require configured provider webhook secrets at runtime before any payload is processed.
-   - Done: Payment success/fail callback URLs use configured `APP_PUBLIC_ORIGIN` instead of trusting the client-supplied origin.
-   - Done: Payment creation requires configured `APP_PUBLIC_ORIGIN` at runtime and works without accepting a client origin.
-   - Done: Completed Stripe Checkout Sessions can be confirmed by redirect or webhook without duplicating wallet credit.
-   - Remaining: Configure Stripe test/live keys and production webhook endpoint, then verify hosted Checkout in deployment.
+   - Done: Payment UI and hosted checkout flows are removed.
+   - Done: `/api/payments/create`, `/api/payments/confirm`, `/api/payments/fail`, and `/api/payments/webhook` return `410 Gone`.
+   - Done: Stripe/Toss adapter code and frontend payment SDK loading are removed.
+   - Done: Legacy payment plans are disabled by migration.
 
 7. Deployment
-   - Add Cloudflare Pages/Workers or equivalent server runtime.
+   - Done: Cloudflare Pages/Functions runtime is configured.
    - Done: `yarn db:migrate:production:dry-run` lists production migrations, and `yarn db:migrate:production` applies them only after `CONFIRM_PRODUCTION_MIGRATIONS` matches the configured D1 database name.
    - Done: `yarn verify:production` verifies the public deployment URL and can send a real Resend OTP when `PRODUCTION_VERIFY_EMAIL` is provided.
-   - Done: `yarn verify:production` can use `PRODUCTION_VERIFY_SESSION_TOKEN` to verify authenticated payment creation and production callback URLs without approving a charge.
    - Apply D1 migrations and bind the production database.
    - Run `yarn test:api` before deployment to verify local D1/API behavior.
-   - Run `yarn check:deploy` before deployment to verify production D1, payment secrets, public origin, and launch review acknowledgement are configured.
-   - Stop before production deployment if payment secrets are missing.
+   - Run `yarn check:deploy` before deployment to verify production D1, public origin, session secret, moderation token, email settings, and launch review acknowledgement are configured.
 
 ## Required Environment Variables
 
 Frontend:
 
-- None required for hosted Stripe Checkout.
+- None required.
 
 Server:
 
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `PAYMENT_PROVIDER=stripe`
 - `SESSION_TOKEN_SECRET`
 - `MODERATION_ADMIN_TOKEN`
 - `AUTH_PROVIDER=resend`
@@ -112,13 +93,12 @@ Server:
 
 ## Deployment Gate
 
-Do not claim real payments are available until the payment provider keys, webhook secret, production callback URLs, and D1 binding are configured and verified. If these are missing, deployment must stop before the "real payment available" claim.
+Do not claim GlobalPulse is production-ready until the D1 binding, session secret, moderation token, Resend email settings, public origin, and launch review acknowledgement are configured and verified.
 
 ## Remaining Production Work
 
 - Resend sender/domain verification and email OTP delivery test in production
-- Stripe test/live key verification in a deployed environment
 - D1 migration execution in production
 - Production deployment URL verification
-- Legal/tax/refund/minor payment/privacy/moderation review
+- Privacy/security/moderation/content policy review
 - Set `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` after completing the operator launch review

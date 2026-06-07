@@ -6,7 +6,7 @@ type CommentBody = {
   idempotencyKey?: string;
 };
 
-const commentCost = 100;
+const commentCost = 0;
 
 export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
   const url = new URL(request.url);
@@ -52,7 +52,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
       userId: comment.user_id,
       author: comment.display_name,
       content: comment.content,
-      cost: Number(comment.cost_amount),
+      cost: commentCost,
       currencyCode: comment.currency_code,
       status: comment.status,
       createdAt: comment.created_at,
@@ -69,19 +69,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     const issueId = requireString(body.issueId, 'issueId');
     const content = requireString(body.content, 'content').slice(0, 500);
     const idempotencyKey = requireString(body.idempotencyKey, 'idempotencyKey');
+    const supportsCommentIdempotency = await hasCommentIdempotency(env.DB);
 
-    const existing = await env.DB.prepare(
-      `
-        SELECT related_comment_id
-        FROM wallet_transactions
-        WHERE idempotency_key = ?
-      `,
-    )
-      .bind(idempotencyKey)
-      .first<{ related_comment_id: string }>();
+    const existing = supportsCommentIdempotency
+      ? await env.DB.prepare(
+          `
+            SELECT id
+            FROM comments
+            WHERE user_id = ? AND idempotency_key = ?
+          `,
+        )
+          .bind(user.id, idempotencyKey)
+          .first<{ id: string }>()
+      : null;
 
-    if (existing?.related_comment_id) {
-      return json({ status: 'duplicate', commentId: existing.related_comment_id });
+    if (existing?.id) {
+      return json({ status: 'duplicate', commentId: existing.id });
     }
 
     const issue = await env.DB.prepare('SELECT id FROM issues WHERE id = ?')
@@ -90,62 +93,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
 
     if (!issue) return badRequest('Issue not found', 404);
 
-    const wallet = await env.DB.prepare(
-      `
-        SELECT id, balance_amount
-        FROM wallets
-        WHERE user_id = ? AND currency_code = 'KRW'
-      `,
-    )
-      .bind(user.id)
-      .first<{ id: string; balance_amount: number }>();
-
-    if (!wallet) return badRequest('Wallet not found', 404);
-    if (Number(wallet.balance_amount) < commentCost) {
-      return badRequest('Insufficient wallet balance', 402);
-    }
-
     const commentId = createId('comment');
-    const transactionId = createId('wtx');
 
-    const [walletDebit, commentWrite, transactionWrite] = await env.DB.batch([
-      env.DB.prepare(
-        `
-          UPDATE wallets
-          SET balance_amount = balance_amount - 100,
-              updated_at = CURRENT_TIMESTAMP
-          WHERE id = ? AND balance_amount >= 100
-        `,
-      ).bind(wallet.id),
-      env.DB.prepare(
-        `
-          INSERT INTO comments
-            (id, issue_id, user_id, content, cost_amount, currency_code, status)
-          SELECT ?, ?, ?, ?, 100, 'KRW', 'visible'
-          WHERE changes() = 1
-        `,
-      ).bind(commentId, issueId, user.id, content),
-      env.DB.prepare(
-        `
-          INSERT INTO wallet_transactions
-            (id, user_id, wallet_id, transaction_type, amount, currency_code, status, related_issue_id, related_comment_id, idempotency_key)
-          SELECT ?, ?, ?, 'comment_spend', -100, 'KRW', 'completed', ?, ?, ?
-          WHERE EXISTS (SELECT 1 FROM comments WHERE id = ?)
-        `,
-      ).bind(transactionId, user.id, wallet.id, issueId, commentId, idempotencyKey, commentId),
-    ]);
+    const commentWrite = supportsCommentIdempotency
+      ? await env.DB.prepare(
+          `
+            INSERT INTO comments
+              (id, issue_id, user_id, content, cost_amount, currency_code, status, idempotency_key)
+            VALUES (?, ?, ?, ?, 0, 'KRW', 'visible', ?)
+          `,
+        )
+          .bind(commentId, issueId, user.id, content, idempotencyKey)
+          .run()
+      : await env.DB.prepare(
+          `
+            INSERT INTO comments
+              (id, issue_id, user_id, content, cost_amount, currency_code, status)
+            VALUES (?, ?, ?, ?, 100, 'KRW', 'visible')
+          `,
+        )
+          .bind(commentId, issueId, user.id, content)
+          .run();
 
-    const walletDebited = Number(walletDebit.meta.changes ?? 0) > 0;
-    const commentCreated = Number(commentWrite.meta.changes ?? 0) > 0;
-    const transactionCreated = Number(transactionWrite.meta.changes ?? 0) > 0;
-
-    if (!walletDebited || !commentCreated || !transactionCreated) {
-      return badRequest('Unable to process paid comment atomically', 409);
+    if (Number(commentWrite.meta.changes ?? 0) === 0) {
+      return badRequest('Unable to create comment', 409);
     }
-
-    const nextWallet = await env.DB.prepare('SELECT balance_amount FROM wallets WHERE id = ?')
-      .bind(wallet.id)
-      .first<{ balance_amount: number }>();
 
     return json({
       comment: {
@@ -159,14 +131,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
         status: 'visible',
         createdAt: new Date().toISOString(),
       },
-      wallet: {
-        balance: Number(nextWallet?.balance_amount ?? 0),
-      },
     });
   } catch (error) {
     return badRequest(error instanceof Error ? error.message : 'Invalid comment request');
   }
 };
+
+async function hasCommentIdempotency(db: D1Database): Promise<boolean> {
+  const result = await db.prepare('PRAGMA table_info(comments)').all<{ name: string }>();
+  return (result.results ?? []).some((column) => column.name === 'idempotency_key');
+}
 
 export const onRequestDelete: PagesFunction<Env> = async ({ env, request }) => {
   const user = await authenticateUser(request, env);

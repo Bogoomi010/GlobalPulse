@@ -1,27 +1,17 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { Buffer } from 'node:buffer';
-import { createHmac, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
-import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
-import { URL, URLSearchParams, fileURLToPath } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const persistTo = '.wrangler/smoke-state';
 const wranglerBin = path.join(root, 'node_modules', '.bin', 'wrangler');
-const smokeWebhookSecret = 'whsec_smoke_webhook_secret_for_tests';
 
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
-
-const command = (args) =>
-  execFileSync(wranglerBin, args, {
-    cwd: root,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
 
 const jsonRequest = async (baseUrl, pathname, options = {}) => {
   const response = await fetch(`${baseUrl}${pathname}`, {
@@ -41,22 +31,6 @@ const jsonRequest = async (baseUrl, pathname, options = {}) => {
     }
   }
   return { body, response };
-};
-
-const signedWebhookRequest = async (baseUrl, payload) => {
-  const body = JSON.stringify(payload);
-  const timestamp = Math.floor(Date.now() / 1000);
-  const signature = createHmac('sha256', smokeWebhookSecret)
-    .update(`${timestamp}.${body}`)
-    .digest('hex');
-
-  return jsonRequest(baseUrl, '/api/payments/webhook', {
-    method: 'POST',
-    headers: {
-      'Stripe-Signature': `t=${timestamp},v1=${signature}`,
-    },
-    body,
-  });
 };
 
 const freePort = async () =>
@@ -88,87 +62,12 @@ const waitForServer = async (baseUrl, process) => {
   throw new Error('Timed out waiting for Wrangler Pages dev');
 };
 
-const startStripeMock = async () => {
-  const sessionsById = new Map();
-  let baseUrl = '';
-  const server = http.createServer(async (request, response) => {
-    const url = new URL(request.url || '/', 'http://127.0.0.1');
-    const send = (status, body) => {
-      response.writeHead(status, { 'Content-Type': 'application/json' });
-      response.end(JSON.stringify(body));
-    };
-
-    if (request.method === 'POST' && url.pathname === '/v1/checkout/sessions') {
-      const chunks = [];
-      for await (const chunk of request) chunks.push(chunk);
-      const params = new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
-      const sessionId = `cs_test_${randomUUID().replaceAll('-', '')}`;
-      const session = {
-        id: sessionId,
-        object: 'checkout.session',
-        amount_subtotal: Number(params.get('line_items[0][price_data][unit_amount]')),
-        amount_total: Number(params.get('line_items[0][price_data][unit_amount]')),
-        client_reference_id: params.get('client_reference_id'),
-        currency: params.get('line_items[0][price_data][currency]'),
-        metadata: {
-          payment_id: params.get('metadata[payment_id]') || '',
-          order_id: params.get('metadata[order_id]') || '',
-          currency_code: params.get('metadata[currency_code]') || '',
-        },
-        payment_intent: null,
-        payment_status: 'unpaid',
-        status: 'open',
-        success_url: params.get('success_url'),
-        cancel_url: params.get('cancel_url'),
-        url: `${baseUrl}/checkout/${sessionId}`,
-      };
-      sessionsById.set(sessionId, session);
-      send(200, session);
-      return;
-    }
-
-    if (request.method === 'GET' && url.pathname.startsWith('/v1/checkout/sessions/')) {
-      const sessionId = decodeURIComponent(url.pathname.replace('/v1/checkout/sessions/', ''));
-      const session = sessionsById.get(sessionId);
-      send(session ? 200 : 404, session || { error: { message: 'Checkout Session not found' } });
-      return;
-    }
-
-    send(404, { error: { message: 'Unhandled Stripe mock route' } });
-  });
-
-  const port = await freePort();
-  baseUrl = `http://127.0.0.1:${port}`;
-  await new Promise((resolve, reject) => {
-    server.listen(port, '127.0.0.1', resolve);
-    server.on('error', reject);
-  });
-
-  return {
-    baseUrl,
-    completeSession(sessionId) {
-      const session = sessionsById.get(sessionId);
-      if (!session) throw new Error(`Missing mock Stripe session ${sessionId}`);
-      const paid = {
-        ...session,
-        payment_intent: `pi_mock_${sessionId.slice(-12)}`,
-        payment_status: 'paid',
-        status: 'complete',
-      };
-      sessionsById.set(sessionId, paid);
-      return paid;
-    },
-    close: () => new Promise((resolve) => server.close(resolve)),
-  };
-};
-
 fs.rmSync(path.join(root, persistTo), { force: true, recursive: true });
 execFileSync('node', ['scripts/apply-local-migrations.mjs', persistTo], {
   cwd: root,
   stdio: 'inherit',
 });
 
-const stripeMock = await startStripeMock();
 const port = await freePort();
 const baseUrl = `http://127.0.0.1:${port}`;
 const wrangler = spawn(
@@ -195,20 +94,6 @@ const wrangler = spawn(
     'AUTH_PROVIDER=resend',
     '--binding',
     'AUTH_EMAIL_DELIVERY=log',
-    '--binding',
-    'PAYMENT_PROVIDER=stripe',
-    '--binding',
-    'STRIPE_SECRET_KEY=sk_test_smoke',
-    '--binding',
-    `STRIPE_WEBHOOK_SECRET=${smokeWebhookSecret}`,
-    '--binding',
-    `STRIPE_API_BASE_URL=${stripeMock.baseUrl}`,
-    '--binding',
-    'TOSS_CLIENT_KEY=test_ck_smoke',
-    '--binding',
-    'TOSS_SECRET_KEY=test_sk_smoke',
-    '--binding',
-    'TOSS_WEBHOOK_SECRET=smoke-toss-webhook-secret',
     '--log-level',
     'error',
     '--show-interactive-dev-session=false',
@@ -240,6 +125,15 @@ try {
   const walletWithoutAuth = await jsonRequest(baseUrl, '/api/wallet');
   assert(walletWithoutAuth.response.status === 401, 'Wallet API must reject missing session');
 
+  const paymentCreate = await jsonRequest(baseUrl, '/api/payments/create', {
+    method: 'POST',
+    body: JSON.stringify({
+      planId: 'removed',
+      idempotencyKey: randomUUID(),
+    }),
+  });
+  assert(paymentCreate.response.status === 410, 'Payment creation must stay disabled');
+
   const loginCode = await jsonRequest(baseUrl, '/api/auth/request-code', {
     method: 'POST',
     body: JSON.stringify({
@@ -270,7 +164,8 @@ try {
 
   const wallet = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', { headers: auth });
   assert(wallet.response.ok, 'Authorized wallet request failed');
-  assert(wallet.body.plans.some((plan) => plan.id === 'krw-1000-stripe'), 'KRW 1,000 Stripe plan missing');
+  assert(wallet.body.wallet.balance === 0, 'Wallet balance should remain zero without payments');
+  assert(Array.isArray(wallet.body.plans) && wallet.body.plans.length === 0, 'Wallet must not expose payment plans');
 
   const anonymousToken = randomUUID();
   const like = await jsonRequest(baseUrl, '/api/reactions', {
@@ -332,34 +227,12 @@ try {
   });
   assert(commentWithoutAuth.response.status === 401, 'Comment API must reject missing session');
 
-  const insufficientComment = await jsonRequest(baseUrl, '/api/comments', {
-    method: 'POST',
-    headers: auth,
-    body: JSON.stringify({
-      issueId: 'issue-001',
-      content: 'Too early',
-      idempotencyKey: randomUUID(),
-    }),
-  });
-  assert(insufficientComment.response.status === 402, 'Comment should require at least 100 KRW');
-
-  command([
-    'd1',
-    'execute',
-    'DB',
-    '--local',
-    '--persist-to',
-    persistTo,
-    '--command',
-    `UPDATE wallets SET balance_amount = 200 WHERE user_id = '${login.body.user.id}'`,
-  ]);
-
   const invalidIssueComment = await jsonRequest(baseUrl, '/api/comments', {
     method: 'POST',
     headers: auth,
     body: JSON.stringify({
       issueId: 'missing-issue',
-      content: 'Missing issue should not charge',
+      content: 'Missing issue should not write',
       idempotencyKey: randomUUID(),
     }),
   });
@@ -369,55 +242,49 @@ try {
     headers: auth,
   });
   assert(walletAfterInvalidIssue.response.ok, 'Wallet request after missing issue comment failed');
-  assert(
-    walletAfterInvalidIssue.body.wallet.balance === 200,
-    'Missing issue comment should not subtract wallet balance',
-  );
+  assert(walletAfterInvalidIssue.body.wallet.balance === 0, 'Missing issue comment should not affect wallet balance');
 
-  const paidCommentKey = randomUUID();
-  const paidComment = await jsonRequest(baseUrl, '/api/comments', {
+  const freeCommentKey = randomUUID();
+  const freeComment = await jsonRequest(baseUrl, '/api/comments', {
     method: 'POST',
     headers: auth,
     body: JSON.stringify({
       issueId: 'issue-001',
-      content: 'Smoke test paid comment',
-      idempotencyKey: paidCommentKey,
+      content: 'Smoke test free comment',
+      idempotencyKey: freeCommentKey,
     }),
   });
-  assert(paidComment.response.ok, 'Paid comment failed after wallet top-up');
-  assert(paidComment.body.wallet.balance === 100, 'Paid comment should subtract 100 KRW');
-  assert(paidComment.body.comment.userId === login.body.user.id, 'Paid comment should include author userId');
+  assert(freeComment.response.ok, 'Free comment failed');
+  assert(freeComment.body.comment.cost === 0, 'Free comment should have zero cost');
+  assert(freeComment.body.comment.userId === login.body.user.id, 'Free comment should include author userId');
 
-  const duplicatePaidComment = await jsonRequest(baseUrl, '/api/comments', {
+  const duplicateFreeComment = await jsonRequest(baseUrl, '/api/comments', {
     method: 'POST',
     headers: auth,
     body: JSON.stringify({
       issueId: 'issue-001',
-      content: 'Smoke test duplicate paid comment',
-      idempotencyKey: paidCommentKey,
+      content: 'Smoke test duplicate free comment',
+      idempotencyKey: freeCommentKey,
     }),
   });
-  assert(duplicatePaidComment.response.ok, 'Duplicate paid comment request failed');
-  assert(duplicatePaidComment.body.status === 'duplicate', 'Duplicate paid comment should be idempotent');
+  assert(duplicateFreeComment.response.ok, 'Duplicate free comment request failed');
+  assert(duplicateFreeComment.body.status === 'duplicate', 'Duplicate free comment should be idempotent');
   assert(
-    duplicatePaidComment.body.commentId === paidComment.body.comment.id,
-    'Duplicate paid comment should return the original comment id',
+    duplicateFreeComment.body.commentId === freeComment.body.comment.id,
+    'Duplicate free comment should return the original comment id',
   );
 
   const walletAfterDuplicateComment = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
     headers: auth,
   });
   assert(walletAfterDuplicateComment.response.ok, 'Wallet request after duplicate comment failed');
-  assert(
-    walletAfterDuplicateComment.body.wallet.balance === 100,
-    'Duplicate paid comment should not subtract wallet balance again',
-  );
+  assert(walletAfterDuplicateComment.body.wallet.balance === 0, 'Free comments must not subtract wallet balance');
 
   const reportToken = randomUUID();
   const report = await jsonRequest(baseUrl, '/api/comment-reports', {
     method: 'POST',
     body: JSON.stringify({
-      commentId: paidComment.body.comment.id,
+      commentId: freeComment.body.comment.id,
       anonymousToken: reportToken,
       reason: 'policy_review',
     }),
@@ -428,7 +295,7 @@ try {
   const duplicateReport = await jsonRequest(baseUrl, '/api/comment-reports', {
     method: 'POST',
     body: JSON.stringify({
-      commentId: paidComment.body.comment.id,
+      commentId: freeComment.body.comment.id,
       anonymousToken: reportToken,
       reason: 'policy_review',
     }),
@@ -442,12 +309,12 @@ try {
 
   const commentsAfterReport = await jsonRequest(
     baseUrl,
-    `/api/comments?issueId=${paidComment.body.comment.issueId}`,
+    `/api/comments?issueId=${freeComment.body.comment.issueId}`,
   );
   assert(commentsAfterReport.response.ok, 'Comment list after report failed');
   assert(
     commentsAfterReport.body.comments.some(
-      (comment) => comment.id === paidComment.body.comment.id && comment.status === 'reported',
+      (comment) => comment.id === freeComment.body.comment.id && comment.status === 'reported',
     ),
     'Reported comment should stay visible with reported status',
   );
@@ -463,7 +330,7 @@ try {
   assert(
     moderationQueue.body.reports.some(
       (item) =>
-        item.commentId === paidComment.body.comment.id &&
+        item.commentId === freeComment.body.comment.id &&
         item.commentStatus === 'reported' &&
         item.openReportCount === 1,
     ),
@@ -475,7 +342,7 @@ try {
     headers: moderationAuth,
     body: JSON.stringify({
       action: 'hide',
-      commentId: paidComment.body.comment.id,
+      commentId: freeComment.body.comment.id,
       note: 'Smoke test hide',
     }),
   });
@@ -485,11 +352,11 @@ try {
 
   const commentsAfterModerationHide = await jsonRequest(
     baseUrl,
-    `/api/comments?issueId=${paidComment.body.comment.issueId}`,
+    `/api/comments?issueId=${freeComment.body.comment.issueId}`,
   );
   assert(commentsAfterModerationHide.response.ok, 'Comment list after moderation hide failed');
   assert(
-    !commentsAfterModerationHide.body.comments.some((comment) => comment.id === paidComment.body.comment.id),
+    !commentsAfterModerationHide.body.comments.some((comment) => comment.id === freeComment.body.comment.id),
     'Hidden moderated comment should not be returned publicly',
   );
 
@@ -500,7 +367,7 @@ try {
   assert(
     reviewedModerationQueue.body.reports.some(
       (item) =>
-        item.commentId === paidComment.body.comment.id &&
+        item.commentId === freeComment.body.comment.id &&
         item.review?.action === 'hide' &&
         item.openReportCount === 0,
     ),
@@ -512,7 +379,7 @@ try {
     headers: moderationAuth,
     body: JSON.stringify({
       action: 'restore',
-      commentId: paidComment.body.comment.id,
+      commentId: freeComment.body.comment.id,
       note: 'Smoke test restore',
     }),
   });
@@ -521,19 +388,19 @@ try {
 
   const commentsAfterModerationRestore = await jsonRequest(
     baseUrl,
-    `/api/comments?issueId=${paidComment.body.comment.issueId}`,
+    `/api/comments?issueId=${freeComment.body.comment.issueId}`,
   );
   assert(commentsAfterModerationRestore.response.ok, 'Comment list after moderation restore failed');
   assert(
     commentsAfterModerationRestore.body.comments.some(
-      (comment) => comment.id === paidComment.body.comment.id && comment.status === 'visible',
+      (comment) => comment.id === freeComment.body.comment.id && comment.status === 'visible',
     ),
     'Restored moderated comment should be returned publicly',
   );
 
   const deleteComment = await jsonRequest(
     baseUrl,
-    `/api/comments?commentId=${paidComment.body.comment.id}`,
+    `/api/comments?commentId=${freeComment.body.comment.id}`,
     {
       method: 'DELETE',
       headers: auth,
@@ -544,264 +411,25 @@ try {
 
   const commentsAfterDelete = await jsonRequest(
     baseUrl,
-    `/api/comments?issueId=${paidComment.body.comment.issueId}`,
+    `/api/comments?issueId=${freeComment.body.comment.issueId}`,
   );
   assert(commentsAfterDelete.response.ok, 'Comment list after delete failed');
   assert(
-    !commentsAfterDelete.body.comments.some((comment) => comment.id === paidComment.body.comment.id),
+    !commentsAfterDelete.body.comments.some((comment) => comment.id === freeComment.body.comment.id),
     'Deleted comment should not be returned',
   );
 
-  const paymentCreateKey = randomUUID();
-  const payment = await jsonRequest(baseUrl, '/api/payments/create', {
+  const paymentConfirm = await jsonRequest(baseUrl, '/api/payments/confirm', {
     method: 'POST',
-    headers: auth,
-    body: JSON.stringify({
-      planId: 'krw-1000-stripe',
-      idempotencyKey: paymentCreateKey,
-      origin: baseUrl,
-    }),
+    body: JSON.stringify({ sessionId: 'removed' }),
   });
-  assert(payment.response.ok, 'Payment creation failed');
-  assert(payment.body.status === 'pending', 'Payment should start as pending');
-  assert(payment.body.provider === 'stripe', 'Payment should use Stripe provider');
-  assert(payment.body.sessionId?.startsWith('cs_test_'), 'Stripe payment should return a Checkout Session ID');
-  assert(payment.body.checkoutUrl?.startsWith(stripeMock.baseUrl), 'Stripe payment should return a checkout URL');
-  assert(payment.body.orderId.startsWith('gp_'), 'Payment orderId should use GlobalPulse prefix');
-  assert(
-    payment.body.successUrl === `${baseUrl}/payment/success?provider=stripe&session_id={CHECKOUT_SESSION_ID}` &&
-      payment.body.failUrl.startsWith(`${baseUrl}/payment/fail?provider=stripe`),
-    'Payment callback URLs should use the configured public origin',
-  );
+  assert(paymentConfirm.response.status === 410, 'Payment confirmation must stay disabled');
 
-  const duplicatePaymentCreate = await jsonRequest(baseUrl, '/api/payments/create', {
+  const paymentWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
     method: 'POST',
-    headers: auth,
-    body: JSON.stringify({
-      planId: 'krw-5000-stripe',
-      idempotencyKey: paymentCreateKey,
-      origin: 'https://evil.example',
-    }),
+    body: JSON.stringify({ type: 'removed' }),
   });
-  assert(duplicatePaymentCreate.response.ok, 'Duplicate payment creation failed');
-  assert(
-    duplicatePaymentCreate.body.paymentId === payment.body.paymentId &&
-      duplicatePaymentCreate.body.orderId === payment.body.orderId,
-    'Duplicate payment creation should return the original payment payload',
-  );
-  assert(
-    duplicatePaymentCreate.body.amount === payment.body.amount &&
-      duplicatePaymentCreate.body.currency === payment.body.currency,
-    'Duplicate payment creation should not switch plans or amount',
-  );
-  assert(
-    duplicatePaymentCreate.body.sessionId === payment.body.sessionId &&
-      duplicatePaymentCreate.body.checkoutUrl === payment.body.checkoutUrl,
-    'Duplicate payment creation should keep the original Stripe Checkout Session',
-  );
-  assert(
-    duplicatePaymentCreate.body.successUrl === `${baseUrl}/payment/success?provider=stripe&session_id={CHECKOUT_SESSION_ID}` &&
-      duplicatePaymentCreate.body.failUrl.startsWith(`${baseUrl}/payment/fail?provider=stripe`),
-    'Duplicate payment creation should keep the configured public callback origin',
-  );
-
-  const hostileOriginPayment = await jsonRequest(baseUrl, '/api/payments/create', {
-    method: 'POST',
-    headers: auth,
-    body: JSON.stringify({
-      planId: 'krw-1000-stripe',
-      idempotencyKey: randomUUID(),
-      origin: 'https://evil.example',
-    }),
-  });
-  assert(hostileOriginPayment.response.ok, 'Payment creation with hostile origin body failed');
-  assert(
-    hostileOriginPayment.body.successUrl === `${baseUrl}/payment/success?provider=stripe&session_id={CHECKOUT_SESSION_ID}` &&
-      hostileOriginPayment.body.failUrl.startsWith(`${baseUrl}/payment/fail?provider=stripe`),
-    'Configured public origin must override client-supplied payment callback origin',
-  );
-
-  const noClientOriginPayment = await jsonRequest(baseUrl, '/api/payments/create', {
-    method: 'POST',
-    headers: auth,
-    body: JSON.stringify({
-      planId: 'krw-1000-stripe',
-      idempotencyKey: randomUUID(),
-    }),
-  });
-  assert(noClientOriginPayment.response.ok, 'Payment creation without client origin failed');
-  assert(
-    noClientOriginPayment.body.successUrl === `${baseUrl}/payment/success?provider=stripe&session_id={CHECKOUT_SESSION_ID}` &&
-      noClientOriginPayment.body.failUrl.startsWith(`${baseUrl}/payment/fail?provider=stripe`),
-    'Payment callback URLs must come from configured APP_PUBLIC_ORIGIN',
-  );
-
-  const paidPayment = await jsonRequest(baseUrl, '/api/payments/create', {
-    method: 'POST',
-    headers: auth,
-    body: JSON.stringify({
-      planId: 'krw-1000-stripe',
-      idempotencyKey: randomUUID(),
-      origin: baseUrl,
-    }),
-  });
-  assert(paidPayment.response.ok, 'Paid payment creation failed');
-  stripeMock.completeSession(paidPayment.body.sessionId);
-
-  const confirmPayment = await jsonRequest(baseUrl, '/api/payments/confirm', {
-    method: 'POST',
-    body: JSON.stringify({
-      sessionId: paidPayment.body.sessionId,
-    }),
-  });
-  assert(confirmPayment.response.ok, 'Payment confirmation failed');
-  assert(confirmPayment.body.status === 'paid', 'Payment confirmation should mark payment paid');
-  assert(confirmPayment.body.wallet.balance === 1100, 'Confirmed payment should increase wallet balance');
-
-  const duplicateConfirmPayment = await jsonRequest(baseUrl, '/api/payments/confirm', {
-    method: 'POST',
-    body: JSON.stringify({
-      sessionId: paidPayment.body.sessionId,
-    }),
-  });
-  assert(duplicateConfirmPayment.response.ok, 'Duplicate payment confirmation failed');
-  assert(
-    duplicateConfirmPayment.body.alreadyProcessed === true,
-    'Duplicate payment confirmation should be idempotent',
-  );
-
-  const walletAfterConfirmedPayment = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
-    headers: auth,
-  });
-  assert(walletAfterConfirmedPayment.response.ok, 'Wallet request after confirmed payment failed');
-  assert(
-    walletAfterConfirmedPayment.body.wallet.balance === 1100,
-    'Duplicate payment confirmation should not increase wallet balance twice',
-  );
-  assert(
-    walletAfterConfirmedPayment.body.transactions.some(
-      (transaction) =>
-        transaction.type === 'topup' &&
-        transaction.status === 'completed' &&
-        transaction.amount === paidPayment.body.amount &&
-        transaction.label === 'Wallet top-up completed' &&
-        transaction.reference === `payment:${paidPayment.body.paymentId}`,
-    ),
-    'Confirmed payment should appear in wallet transaction history',
-  );
-
-  const webhookPayment = await jsonRequest(baseUrl, '/api/payments/create', {
-    method: 'POST',
-    headers: auth,
-    body: JSON.stringify({
-      planId: 'krw-1000-stripe',
-      idempotencyKey: randomUUID(),
-      origin: baseUrl,
-    }),
-  });
-  assert(webhookPayment.response.ok, 'Webhook payment creation failed');
-  stripeMock.completeSession(webhookPayment.body.sessionId);
-
-  const completedWebhookPayload = {
-    id: `evt_${randomUUID().replaceAll('-', '')}`,
-    type: 'checkout.session.completed',
-    data: {
-      object: {
-        id: webhookPayment.body.sessionId,
-        object: 'checkout.session',
-        metadata: {
-          order_id: webhookPayment.body.orderId,
-        },
-      },
-    },
-  };
-
-  const unsignedCompletedWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
-    method: 'POST',
-    body: JSON.stringify(completedWebhookPayload),
-  });
-  assert(
-    unsignedCompletedWebhook.response.status === 401,
-    'Webhook must reject missing Stripe signature when webhook secret is configured',
-  );
-
-  const invalidSignatureCompletedWebhook = await jsonRequest(baseUrl, '/api/payments/webhook', {
-    method: 'POST',
-    headers: {
-      'Stripe-Signature': `t=${Math.floor(Date.now() / 1000)},v1=invalid-signature`,
-    },
-    body: JSON.stringify(completedWebhookPayload),
-  });
-  assert(
-    invalidSignatureCompletedWebhook.response.status === 401,
-    'Webhook must reject invalid Stripe signature',
-  );
-
-  const completedWebhook = await signedWebhookRequest(baseUrl, completedWebhookPayload);
-  assert(completedWebhook.response.ok, 'Stripe completed payment webhook failed');
-  assert(completedWebhook.body.status === 'paid', 'Completed webhook should mark payment paid');
-
-  const repeatedCompletedWebhook = await signedWebhookRequest(baseUrl, completedWebhookPayload);
-  assert(repeatedCompletedWebhook.response.ok, 'Repeated completed webhook failed');
-  assert(
-    repeatedCompletedWebhook.body.status === 'already_processed',
-    'Repeated completed webhook should not duplicate the top-up',
-  );
-
-  const walletAfterWebhookPayment = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
-    headers: auth,
-  });
-  assert(walletAfterWebhookPayment.response.ok, 'Wallet request after completed webhook failed');
-  assert(
-    walletAfterWebhookPayment.body.wallet.balance === 2100,
-    'Completed webhook should increase wallet balance once',
-  );
-
-  const paymentFail = await jsonRequest(baseUrl, '/api/payments/fail', {
-    method: 'POST',
-    body: JSON.stringify({
-      orderId: payment.body.orderId,
-      code: 'PAY_PROCESS_CANCELED',
-      message: 'Smoke test cancellation',
-    }),
-  });
-  assert(paymentFail.response.ok, 'Payment failure recording failed');
-  assert(paymentFail.body.status === 'cancelled', 'Cancelled payment should be recorded as cancelled');
-  assert(paymentFail.body.transactionRecorded === true, 'Cancelled payment should create a transaction');
-
-  const repeatedPaymentFail = await jsonRequest(baseUrl, '/api/payments/fail', {
-    method: 'POST',
-    body: JSON.stringify({
-      orderId: payment.body.orderId,
-      code: 'PAY_PROCESS_CANCELED',
-      message: 'Smoke test cancellation retry',
-    }),
-  });
-  assert(repeatedPaymentFail.response.ok, 'Repeated payment failure recording failed');
-  assert(
-    repeatedPaymentFail.body.transactionRecorded === false,
-    'Repeated payment failure should not create duplicate transactions',
-  );
-
-  const walletAfterFailedPayment = await jsonRequest(baseUrl, '/api/wallet?countryCode=KR', {
-    headers: auth,
-  });
-  assert(walletAfterFailedPayment.response.ok, 'Wallet request after failed payment failed');
-  assert(
-    walletAfterFailedPayment.body.wallet.balance === 2100,
-    'Cancelled payment should not increase wallet balance',
-  );
-  assert(
-    walletAfterFailedPayment.body.transactions.some(
-      (transaction) =>
-        transaction.type === 'topup' &&
-        transaction.status === 'cancelled' &&
-        transaction.amount === payment.body.amount &&
-        transaction.label === 'Wallet top-up cancelled' &&
-        transaction.reference === `payment:${payment.body.paymentId}:cancelled`,
-    ),
-    'Cancelled payment should appear in wallet transaction history',
-  );
+  assert(paymentWebhook.response.status === 410, 'Payment webhook must stay disabled');
 
   const logout = await jsonRequest(baseUrl, '/api/auth/logout', {
     method: 'POST',
@@ -821,5 +449,4 @@ try {
   throw error;
 } finally {
   wrangler.kill('SIGTERM');
-  await stripeMock.close();
 }

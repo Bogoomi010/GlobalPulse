@@ -1,11 +1,8 @@
 import { Env, authenticateUser, json, unauthorized } from '../_shared';
 
 export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
-  const url = new URL(request.url);
   const user = await authenticateUser(request, env);
   if (!user) return unauthorized();
-
-  const countryCode = (url.searchParams.get('countryCode') || 'KR').toUpperCase();
 
   const wallet = await env.DB.prepare(
     `
@@ -37,25 +34,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
       created_at: string;
     }>();
 
-  const plans = await env.DB.prepare(
-    `
-      SELECT id, country_code, currency_code, amount, display_label, provider_name, provider_price_id
-      FROM payment_plans
-      WHERE is_active = 1 AND (country_code = ? OR country_code = 'WW')
-      ORDER BY country_code = ? DESC, country_code = 'WW' DESC, amount ASC
-    `,
-  )
-    .bind(countryCode, countryCode)
-    .all<{
-      id: string;
-      country_code: string;
-      currency_code: string;
-      amount: number;
-      display_label: string;
-      provider_name: string;
-      provider_price_id: string | null;
-    }>();
-
   return json({
     wallet: {
       id: wallet?.id,
@@ -72,27 +50,19 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
       reference: transaction.idempotency_key,
       createdAt: transaction.created_at,
     })),
-    plans: (plans.results ?? []).map((plan) => ({
-      id: plan.id,
-      country: plan.country_code,
-      currency: plan.currency_code,
-      amount: Number(plan.amount),
-      label: plan.display_label,
-      provider: plan.provider_name,
-      providerPriceId: plan.provider_price_id,
-    })),
+    plans: [],
   });
 };
 
 function formatTransactionLabel(type: string, status: string): string {
   if (type === 'topup') {
-    if (status === 'completed') return 'Wallet top-up completed';
-    if (status === 'cancelled') return 'Wallet top-up cancelled';
-    if (status === 'failed') return 'Wallet top-up failed';
-    return 'Wallet top-up pending';
+    if (status === 'completed') return 'Legacy top-up completed';
+    if (status === 'cancelled') return 'Legacy top-up cancelled';
+    if (status === 'failed') return 'Legacy top-up failed';
+    return 'Legacy top-up pending';
   }
 
-  if (type === 'comment_spend') return 'Paid comment';
+  if (type === 'comment_spend') return 'Comment';
   if (type === 'refund') {
     if (status === 'pending') return 'Refund pending balance recovery';
     return 'Payment refund';

@@ -8,7 +8,6 @@ const wrangler = fs.readFileSync(wranglerPath, 'utf8');
 
 const commonRequiredEnv = [
   'SESSION_TOKEN_SECRET',
-  'PAYMENT_PROVIDER',
   'AUTH_PROVIDER',
   'RESEND_API_KEY',
   'AUTH_EMAIL_FROM',
@@ -38,16 +37,7 @@ for (const key of commonRequiredEnv) {
   if (!process.env[key]) failures.push(`${key} must be set in the deployment environment.`);
 }
 
-const viteClientKey = process.env.VITE_TOSS_CLIENT_KEY || '';
-const serverClientKey = process.env.TOSS_CLIENT_KEY || '';
-const tossSecretKey = process.env.TOSS_SECRET_KEY || '';
-const tossWebhookSecret = process.env.TOSS_WEBHOOK_SECRET || '';
-const tossApiBaseUrl = process.env.TOSS_API_BASE_URL || '';
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
-const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
-const stripeApiBaseUrl = process.env.STRIPE_API_BASE_URL || '';
 const sessionSecret = process.env.SESSION_TOKEN_SECRET || '';
-const provider = process.env.PAYMENT_PROVIDER || '';
 const authProvider = process.env.AUTH_PROVIDER || '';
 const authEmailDelivery = process.env.AUTH_EMAIL_DELIVERY || '';
 const resendApiKey = process.env.RESEND_API_KEY || '';
@@ -56,45 +46,6 @@ const allowDemoLogin = process.env.ALLOW_DEMO_LOGIN || '';
 const moderationAdminToken = process.env.MODERATION_ADMIN_TOKEN || '';
 const appPublicOrigin = process.env.APP_PUBLIC_ORIGIN || '';
 const launchReviewAck = process.env.LAUNCH_REVIEW_ACK || '';
-
-if (provider === 'stripe') {
-  if (!stripeSecretKey) failures.push('STRIPE_SECRET_KEY must be set for Stripe payments.');
-  if (!stripeWebhookSecret) failures.push('STRIPE_WEBHOOK_SECRET must be set for Stripe payment webhooks.');
-  if (stripeSecretKey && !/^sk_live_/.test(stripeSecretKey)) {
-    failures.push('STRIPE_SECRET_KEY must be a Stripe live secret key for production deployment.');
-  }
-  if (stripeWebhookSecret && !/^whsec_[A-Za-z0-9_]+$/.test(stripeWebhookSecret)) {
-    failures.push('STRIPE_WEBHOOK_SECRET must be a Stripe webhook signing secret.');
-  }
-  if (stripeApiBaseUrl && stripeApiBaseUrl.replace(/\/$/, '') !== 'https://api.stripe.com') {
-    failures.push('STRIPE_API_BASE_URL must not override the official Stripe API in production.');
-  }
-} else if (provider === 'toss') {
-  if (!viteClientKey) failures.push('VITE_TOSS_CLIENT_KEY must be set for Toss payments.');
-  if (!serverClientKey) failures.push('TOSS_CLIENT_KEY must be set for Toss payments.');
-  if (!tossSecretKey) failures.push('TOSS_SECRET_KEY must be set for Toss payments.');
-  if (!tossWebhookSecret) failures.push('TOSS_WEBHOOK_SECRET must be set for Toss payment webhooks.');
-  if (viteClientKey && !/^live_(ck|gck)_/.test(viteClientKey)) {
-    failures.push('VITE_TOSS_CLIENT_KEY must be a Toss live client key for production deployment.');
-  }
-  if (serverClientKey && !/^live_(ck|gck)_/.test(serverClientKey)) {
-    failures.push('TOSS_CLIENT_KEY must be a Toss live client key for production deployment.');
-  }
-  if (viteClientKey && serverClientKey && viteClientKey !== serverClientKey) {
-    warnings.push('VITE_TOSS_CLIENT_KEY and TOSS_CLIENT_KEY differ. Confirm this is intentional.');
-  }
-  if (tossSecretKey && !/^live_(sk|gsk)_/.test(tossSecretKey)) {
-    failures.push('TOSS_SECRET_KEY must be a Toss live secret key for production deployment.');
-  }
-  if (tossApiBaseUrl && tossApiBaseUrl.replace(/\/$/, '') !== 'https://api.tosspayments.com') {
-    failures.push('TOSS_API_BASE_URL must not override the official Toss Payments API in production.');
-  }
-  if (tossWebhookSecret && tossWebhookSecret.length < 24) {
-    failures.push('TOSS_WEBHOOK_SECRET must be at least 24 characters.');
-  }
-} else if (provider) {
-  failures.push('PAYMENT_PROVIDER must be set to "stripe" or "toss".');
-}
 
 if (sessionSecret && sessionSecret.length < 32) {
   failures.push('SESSION_TOKEN_SECRET must be at least 32 characters.');
@@ -116,7 +67,7 @@ if (appPublicOrigin) {
   try {
     const url = new URL(appPublicOrigin);
     if (url.protocol !== 'https:') {
-      failures.push('APP_PUBLIC_ORIGIN must use https for production payment callbacks.');
+      failures.push('APP_PUBLIC_ORIGIN must use https for production.');
     }
     if (url.pathname !== '/' || url.search || url.hash) {
       failures.push('APP_PUBLIC_ORIGIN must be an origin only, without path, query, or hash.');
@@ -163,7 +114,7 @@ if (failures.length) {
   console.error(
     [
       'Production deployment is blocked.',
-      'GlobalPulse cannot be deployed as a real-payment service until these items are fixed:',
+      'GlobalPulse cannot be deployed until these items are fixed:',
       ...failures.map((failure) => `- ${failure}`),
     ].join('\n'),
   );

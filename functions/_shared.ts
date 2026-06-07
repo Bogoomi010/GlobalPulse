@@ -1,14 +1,6 @@
 export type Env = {
   DB: D1Database;
   SESSION_TOKEN_SECRET?: string;
-  TOSS_CLIENT_KEY?: string;
-  TOSS_SECRET_KEY?: string;
-  TOSS_WEBHOOK_SECRET?: string;
-  TOSS_API_BASE_URL?: string;
-  STRIPE_SECRET_KEY?: string;
-  STRIPE_WEBHOOK_SECRET?: string;
-  STRIPE_API_BASE_URL?: string;
-  PAYMENT_PROVIDER?: string;
   AUTH_PROVIDER?: string;
   AUTH_EMAIL_DELIVERY?: string;
   RESEND_API_KEY?: string;
@@ -68,17 +60,6 @@ export type UserWithWallet = {
     currencyCode: string;
     balance: number;
   };
-};
-
-export type TopupTransactionStatus = 'completed' | 'failed' | 'cancelled';
-
-export type TopupTransactionInput = {
-  userId: string;
-  walletId: string;
-  paymentId: string;
-  amount: number;
-  currencyCode: string;
-  status: TopupTransactionStatus;
 };
 
 export function json(data: unknown, status = 200): Response {
@@ -360,74 +341,6 @@ export async function revokeCurrentUserSession(request: Request, env: Env): Prom
 
 export function unauthorized(): Response {
   return json({ error: 'Authentication required' }, 401);
-}
-
-export function tossAuthHeader(secretKey: string): string {
-  return `Basic ${btoa(`${secretKey}:`)}`;
-}
-
-export function paymentProviderReady(env: Env): boolean {
-  if (env.PAYMENT_PROVIDER === 'toss') return Boolean(env.TOSS_CLIENT_KEY && env.TOSS_SECRET_KEY);
-  return Boolean(env.STRIPE_SECRET_KEY);
-}
-
-export async function recordTopupTransaction(
-  db: D1Database,
-  input: TopupTransactionInput,
-): Promise<boolean> {
-  const result = await db
-    .prepare(
-      `
-        INSERT OR IGNORE INTO wallet_transactions
-          (id, user_id, wallet_id, transaction_type, amount, currency_code, status, payment_id, idempotency_key)
-        VALUES (?, ?, ?, 'topup', ?, ?, ?, ?, ?)
-      `,
-    )
-    .bind(
-      createId('wtx'),
-      input.userId,
-      input.walletId,
-      Number(input.amount),
-      input.currencyCode,
-      input.status,
-      input.paymentId,
-      input.status === 'completed'
-        ? `payment:${input.paymentId}`
-        : `payment:${input.paymentId}:${input.status}`,
-    )
-    .run();
-
-  return Number(result.meta.changes ?? 0) > 0;
-}
-
-export async function verifyTossSignature(
-  request: Request,
-  rawBody: string,
-  webhookSecret?: string,
-): Promise<boolean> {
-  if (!webhookSecret) return false;
-
-  const timestamp =
-    request.headers.get('tosspayments-webhook-transmission-time') ||
-    request.headers.get('x-toss-timestamp');
-  const signature =
-    request.headers.get('tosspayments-webhook-signature') || request.headers.get('x-toss-signature');
-
-  if (!timestamp || !signature) return false;
-
-  const signedPayload = signature.startsWith('v1=') ? signature.slice(3) : signature;
-  const expectedA = await hmacHex(webhookSecret, `${rawBody}:${timestamp}`);
-  const expectedB = await hmacHex(webhookSecret, `${timestamp}.${rawBody}`);
-  return safeEqual(signedPayload, expectedA) || safeEqual(signedPayload, expectedB);
-}
-
-function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let index = 0; index < a.length; index += 1) {
-    diff |= a.charCodeAt(index) ^ b.charCodeAt(index);
-  }
-  return diff === 0;
 }
 
 function getBearerToken(request: Request): string | null {

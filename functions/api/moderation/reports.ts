@@ -1,4 +1,4 @@
-import { Env, badRequest, createId, json, readJson, requireString } from '../../_shared';
+import { Env, badRequest, constantTimeEqual, createId, json, readJson, requireString } from '../../_shared';
 
 type ModerationActionBody = {
   action?: string;
@@ -178,7 +178,7 @@ function requireModerator(request: Request, env: Env): Response | null {
   const headerToken = request.headers.get('X-Moderation-Token') || request.headers.get('x-moderation-token');
   const token = bearerToken || headerToken || '';
 
-  if (!token || token !== env.MODERATION_ADMIN_TOKEN) {
+  if (!token || !constantTimeEqual(token, env.MODERATION_ADMIN_TOKEN)) {
     return json({ error: 'Moderator authentication required' }, 401);
   }
 

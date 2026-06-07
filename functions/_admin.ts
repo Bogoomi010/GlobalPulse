@@ -1,4 +1,4 @@
-import { Env, badRequest, json } from './_shared';
+import { Env, badRequest, constantTimeEqual, json } from './_shared';
 
 export function requireAdmin(request: Request, env: Env): Response | null {
   if (!env.MODERATION_ADMIN_TOKEN) {
@@ -17,15 +17,4 @@ export function requireAdmin(request: Request, env: Env): Response | null {
   }
 
   return null;
-}
-
-function constantTimeEqual(left: string, right: string): boolean {
-  const maxLength = Math.max(left.length, right.length);
-  let difference = left.length ^ right.length;
-
-  for (let index = 0; index < maxLength; index += 1) {
-    difference |= (left.charCodeAt(index) || 0) ^ (right.charCodeAt(index) || 0);
-  }
-
-  return difference === 0;
 }

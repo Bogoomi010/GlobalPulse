@@ -92,6 +92,17 @@ export function requireString(value: unknown, field: string): string {
   return value.trim();
 }
 
+export function constantTimeEqual(left: string, right: string): boolean {
+  const maxLength = Math.max(left.length, right.length);
+  let difference = left.length ^ right.length;
+
+  for (let index = 0; index < maxLength; index += 1) {
+    difference |= (left.charCodeAt(index) || 0) ^ (right.charCodeAt(index) || 0);
+  }
+
+  return difference === 0;
+}
+
 export function normalizeEmail(value: string): string {
   const email = value.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

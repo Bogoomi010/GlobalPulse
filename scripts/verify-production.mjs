@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { URL } from 'node:url';
-import { forbiddenPublicPhrases } from './public-copy-rules.mjs';
+import { forbiddenPublicPhrases, requiredPublicPolicyPhrases } from './public-copy-rules.mjs';
 
 const allowHttp = process.argv.includes('--allow-http');
 const target = process.argv.find((arg) => arg.startsWith('http')) || process.env.APP_PUBLIC_ORIGIN || '';
@@ -40,6 +40,8 @@ await record('Public app loads', async () => {
 });
 
 await record('Public copy avoids payment wording', async () => auditDeployedPublicCopy());
+
+await record('Public policy copy is present', async () => auditDeployedPolicyCopy());
 
 await record('/api/issues returns D1 issues', async () => {
   const { body, response } = await fetchJson('/api/issues');
@@ -258,15 +260,7 @@ async function expectPaymentGone(pathname, body) {
 }
 
 async function auditDeployedPublicCopy() {
-  const rootResponse = await fetchText('/');
-  if (!rootResponse.ok) throw new Error(`Expected 200, got ${rootResponse.status}`);
-
-  const files = [{ path: '/', text: rootResponse.text }];
-  for (const assetPath of extractAssetPaths(rootResponse.text)) {
-    const assetResponse = await fetchText(assetPath);
-    if (!assetResponse.ok) throw new Error(`Expected 200 for ${assetPath}, got ${assetResponse.status}`);
-    files.push({ path: assetPath, text: assetResponse.text });
-  }
+  const files = await fetchDeployedPublicFiles();
 
   for (const file of files) {
     for (const phrase of forbiddenPublicPhrases) {
@@ -277,6 +271,40 @@ async function auditDeployedPublicCopy() {
   }
 
   return `${files.length} deployment files checked`;
+}
+
+async function auditDeployedPolicyCopy() {
+  const files = await fetchDeployedPublicFiles();
+  const deployedText = files.map((file) => file.text).join('\n');
+  const missing = [];
+
+  for (const group of requiredPublicPolicyPhrases) {
+    for (const phrase of group.phrases) {
+      if (!deployedText.includes(phrase)) {
+        missing.push(`${group.label}: "${phrase}"`);
+      }
+    }
+  }
+
+  if (missing.length) {
+    throw new Error(`Missing required public policy copy: ${missing.join('; ')}`);
+  }
+
+  return `${requiredPublicPolicyPhrases.length} policy copy groups checked`;
+}
+
+async function fetchDeployedPublicFiles() {
+  const rootResponse = await fetchText('/');
+  if (!rootResponse.ok) throw new Error(`Expected 200, got ${rootResponse.status}`);
+
+  const files = [{ path: '/', text: rootResponse.text }];
+  for (const assetPath of extractAssetPaths(rootResponse.text)) {
+    const assetResponse = await fetchText(assetPath);
+    if (!assetResponse.ok) throw new Error(`Expected 200 for ${assetPath}, got ${assetResponse.status}`);
+    files.push({ path: assetPath, text: assetResponse.text });
+  }
+
+  return files;
 }
 
 function extractAssetPaths(html) {

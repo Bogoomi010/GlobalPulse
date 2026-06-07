@@ -33,6 +33,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Production URL verification script checks that every returned issue includes named HTTP(S) source links
 - Production URL verification script checks that issue title, summary, and detail text avoid verdict-like fact/truth claims
 - Production URL verification script checks deployed HTML, JS, and CSS assets for removed payment-provider, checkout, top-up, and paid-comment wording
+- Production URL verification script checks deployed UI/policy copy for signed-in free comment access, comment non-authority disclaimers, moderation/report handling, and neutral issue framing
 - Production URL verification script also checks anonymous reaction like, switch, cancel, baseline count restoration, and `/api/issues` aggregate persistence
 - Production URL verification script checks public comment listing and rejects unauthenticated comment writes
 - Public-copy audit checks that visible UI copy does not mention removed payment-provider, checkout, top-up, or paid-comment flows
@@ -91,6 +92,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Public launch verification checks that every returned issue includes named HTTP(S) source links.
    - Done: Public launch verification checks issue title, summary, and detail text for verdict-like fact/truth claims.
    - Done: Public launch verification checks deployed HTML, JS, and CSS assets for removed payment-provider and paid-comment wording.
+   - Done: Public launch verification checks deployed UI/policy copy for signed-in free comment access, comment non-authority disclaimers, moderation/report handling, and neutral issue framing.
    - Done: Public launch verification checks anonymous reaction persistence by liking, switching, cancelling, restoring baseline counts, and reading `/api/issues` aggregates.
    - Done: Public launch verification checks comment list loading and unauthenticated comment write rejection.
    - Done: `yarn audit:public-copy` checks that visible UI copy avoids removed payment-provider and paid-comment wording.

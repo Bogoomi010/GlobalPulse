@@ -1,6 +1,6 @@
 # GlobalPulse Goal Status
 
-Generated: 2026-06-07T06:11:24Z
+Generated: 2026-06-07T06:19:04Z
 
 ## Active Scope
 
@@ -20,10 +20,11 @@ Do not describe the service as production-ready until the remaining operator-con
 
 ## Verified Evidence
 
-- `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` passed public checks on 2026-06-07T06:11:24Z.
+- `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` passed public checks on 2026-06-07T06:19:04Z.
 - `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production` passed public production verification on the latest checked state.
 - Public app loads at the production URL.
 - Public production verification fetches deployed HTML, JS, and CSS assets and confirms removed payment-provider, checkout, top-up, and paid-comment wording is absent.
+- Public production verification confirms deployed UI/policy copy includes signed-in free comment access, comment non-authority disclaimers, moderation/report handling, and neutral issue framing.
 - `/api/issues` returns 20 D1-backed issues.
 - Public issue data includes named source links with HTTP(S) URLs for every returned issue.
 - Public issue title, summary, and detail text avoid verdict-like fact/truth claims.

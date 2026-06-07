@@ -82,6 +82,7 @@ GlobalPulse does not use Stripe, Toss, or other payment provider secrets. If old
 - Every returned issue includes named source links with HTTP(S) URLs.
 - Returned issue titles, summaries, and details avoid verdict-like fact/truth claims.
 - Deployed HTML, JS, and CSS assets avoid removed payment-provider, checkout, top-up, and paid-comment wording.
+- Deployed UI/policy copy includes signed-in free comment access, comment non-authority disclaimers, moderation/report handling, and neutral issue framing.
 - Public verification can like, switch, and cancel an anonymous reaction, restore baseline counts, then observe persisted aggregates through `/api/issues`.
 - Public verification can list issue comments and confirms unauthenticated comment creation returns `401`.
 - `/api/payments/create`, `/api/payments/confirm`, `/api/payments/fail`, and `/api/payments/webhook` return `410 Gone`.

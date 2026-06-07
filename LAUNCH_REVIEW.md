@@ -3,6 +3,7 @@
 Complete this review before telling users that GlobalPulse is production-ready.
 
 Use `OPERATOR_RUNBOOK.md` for the ordered Cloudflare, Resend, verification, and launch acknowledgement procedure.
+Use `GOAL_STATUS.md` for the current modified scope, production target, verified public evidence, and remaining launch gates.
 
 Do not paste API keys, admin tokens, OTP codes, session tokens, or secret values into this file. Record only pass/fail results, timestamps, command names, and non-secret observations.
 
@@ -36,12 +37,12 @@ Complete the Pre-ACK items before setting `LAUNCH_REVIEW_ACK`. Complete the Post
 ### Current Evidence Snapshot
 
 ```text
-Timestamp: 2026-06-07T05:30:58Z
+Timestamp: 2026-06-07T05:36:43Z
 Public launch review: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md
 Public production verification: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production
 Public browser smoke: PASS for feed render, search, category filter, sort tabs, detail modal, anonymous reaction toggle, mobile 390px layout, and desktop 1440px layout
 Production responsive smoke: PASS for feed, issue details, login, comments, policy, and ops at 390x844 mobile and 1440x900 desktop with no horizontal overflow
-Cloudflare dashboard observation: BLOCKED; legacy payment secret names still present: PAYMENT_PROVIDER, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, TOSS_CLIENT_KEY, TOSS_SECRET_KEY, TOSS_WEBHOOK_SECRET, VITE_TOSS_CLIENT_KEY
+Last Cloudflare dashboard observation: BLOCKED; legacy payment secret names still present: PAYMENT_PROVIDER, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, TOSS_CLIENT_KEY, TOSS_SECRET_KEY, TOSS_WEBHOOK_SECRET, VITE_TOSS_CLIENT_KEY
 Protected runtime evidence: PENDING; requires production admin token
 Production email OTP evidence: PENDING; requires operator mailbox OTP flow
 Launch ACK evidence: PENDING; set only after all review sections are complete

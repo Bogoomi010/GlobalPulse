@@ -4,6 +4,8 @@ Use this runbook to finish the production operator steps that cannot be complete
 
 Do not paste API keys, admin tokens, OTP codes, session tokens, or secret values into issues, commits, docs, screenshots, or chat. Record only pass/fail results, timestamps, command names, and non-secret observations.
 
+For the current modified launch scope, verified public evidence, and remaining operator gates, see `GOAL_STATUS.md`.
+
 ## Production Target
 
 - Cloudflare Pages project: `globalpulse-pages`

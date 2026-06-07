@@ -1,6 +1,7 @@
 # GlobalPulse Deployment Checklist
 
 Use `OPERATOR_RUNBOOK.md` for the ordered Cloudflare, Resend, verification, and launch acknowledgement procedure.
+Use `GOAL_STATUS.md` for the current modified launch scope, verified public evidence, and remaining operator gates.
 
 ## Build
 

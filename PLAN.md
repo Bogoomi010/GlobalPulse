@@ -33,6 +33,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Launch review report script prints non-secret public and protected runtime evidence for operator review
 - Operator runbook documents the ordered Cloudflare, Resend, verification, and launch acknowledgement procedure
 - Production admin CLI can check runtime state, refresh public issues, and verify production email OTP login without exposing admin tokens or session tokens
+- `GOAL_STATUS.md` summarizes the current modified scope, production URL, verified public evidence, and remaining operator-controlled launch gates
 
 ## Milestones
 
@@ -82,9 +83,9 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: `yarn verify:production` verifies the public deployment URL and can send a real Resend OTP when `PRODUCTION_VERIFY_EMAIL` is provided.
    - Done: `yarn launch:review` prints a non-secret launch review report for public and optional protected runtime evidence.
    - Done: `yarn admin:status`, `yarn admin:ready`, `yarn admin:refresh-issues`, `yarn admin:test-email`, and `yarn admin:verify-email` support protected production operations when an operator token is supplied.
-   - Apply D1 migrations and bind the production database.
-   - Run `yarn test:api` before deployment to verify local D1/API behavior.
-   - Run `yarn check:deploy` before deployment to verify production D1, public origin, session secret, moderation token, email settings, launch review acknowledgement, and old payment-provider secret removal.
+   - Done: Public production verification confirms the deployed app loads and `/api/issues` returns 20 D1-backed issues.
+   - Remaining: Confirm protected D1 schema/runtime status with the production admin token.
+   - Remaining: Run `yarn check:deploy` in the production build environment after final Cloudflare variables, Resend settings, launch review acknowledgement, and old payment-provider secret removal are complete.
 
 ## Required Environment Variables
 
@@ -111,9 +112,9 @@ Do not claim GlobalPulse is production-ready while old Stripe, Toss, or payment-
 ## Remaining Production Work
 
 - Resend sender/domain verification and email OTP delivery test in production
-- D1 migration execution in production
-- Production deployment URL verification
+- Protected admin-token runtime evidence for D1 schema, email settings, public origin, demo-login state, disabled payment plans, and old payment-provider secret removal
 - Remove old Stripe/Toss/payment-provider secrets from Cloudflare Pages
 - Privacy/security/moderation/content policy review
 - Run operator live issue refresh after production secrets and D1 are confirmed
 - Set `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` after completing the operator launch review
+- Run final protected `admin:ready`, `verify:production`, and `launch:review` checks after the acknowledgement deployment

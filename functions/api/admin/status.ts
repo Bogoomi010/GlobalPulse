@@ -18,6 +18,16 @@ const requiredTables = [
   'wallets',
 ];
 
+const legacyPaymentSecretNames = [
+  'PAYMENT_PROVIDER',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'TOSS_CLIENT_KEY',
+  'TOSS_SECRET_KEY',
+  'TOSS_WEBHOOK_SECRET',
+  'VITE_TOSS_CLIENT_KEY',
+] as const;
+
 export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
   const unauthorized = requireAdmin(request, env);
   if (unauthorized) return unauthorized;
@@ -33,6 +43,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
   ).first<{ count: number }>();
   const existingTables = new Set((tableResult.results ?? []).map((row) => row.name));
   const missingTables = requiredTables.filter((table) => !existingTables.has(table));
+  const legacySecretsPresent = legacyPaymentSecretNames.filter((name) => Boolean(env[name]));
 
   return json({
     auth: {
@@ -58,6 +69,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
     },
     payments: {
       activePlanCount: Number(activePaymentPlans?.count ?? 0),
+      legacySecretCount: legacySecretsPresent.length,
+      legacySecretsPresent,
       mode: 'disabled',
     },
     status: 'ok',

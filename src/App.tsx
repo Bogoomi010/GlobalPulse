@@ -123,6 +123,8 @@ type RuntimeStatus = {
   };
   payments: {
     activePlanCount: number;
+    legacySecretCount: number;
+    legacySecretsPresent: string[];
     mode: 'disabled';
   };
   status: 'ok';
@@ -1641,7 +1643,11 @@ function OpsRuntimeStatus({
   );
   const d1Ready = Boolean(runtimeStatus && runtimeStatus.d1.issueCount >= 20);
   const d1SchemaReady = Boolean(runtimeStatus?.d1.requiredTablesPresent);
-  const paymentsDisabled = Boolean(runtimeStatus && runtimeStatus.payments.activePlanCount === 0);
+  const paymentsDisabled = Boolean(
+    runtimeStatus &&
+      runtimeStatus.payments.activePlanCount === 0 &&
+      runtimeStatus.payments.legacySecretCount === 0,
+  );
   const launchReady = Boolean(runtimeStatus?.config.launchReviewAcknowledged);
 
   return (
@@ -1661,6 +1667,7 @@ function OpsRuntimeStatus({
           <OpsStatusLine label="Public origin matches deploy" ok={Boolean(runtimeStatus.config.appPublicOriginMatchesRequest)} />
           <OpsStatusLine label="Runtime secrets" ok={runtimeReady} />
           <OpsStatusLine label="Payments disabled" ok={paymentsDisabled} />
+          <OpsStatusLine label={`Legacy payment secrets ${runtimeStatus.payments.legacySecretCount}`} ok={runtimeStatus.payments.legacySecretCount === 0} />
           <OpsStatusLine label="Launch review ACK" ok={launchReady} />
         </div>
       ) : null}

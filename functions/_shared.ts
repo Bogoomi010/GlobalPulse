@@ -10,6 +10,13 @@ export type Env = {
   MODERATION_ADMIN_TOKEN?: string;
   APP_PUBLIC_ORIGIN?: string;
   LAUNCH_REVIEW_ACK?: string;
+  PAYMENT_PROVIDER?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  TOSS_CLIENT_KEY?: string;
+  TOSS_SECRET_KEY?: string;
+  TOSS_WEBHOOK_SECRET?: string;
+  VITE_TOSS_CLIENT_KEY?: string;
 };
 
 export type ApiIssue = {

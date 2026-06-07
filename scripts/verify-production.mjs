@@ -128,6 +128,12 @@ if (adminToken) {
     if (Number(body.payments?.activePlanCount ?? 0) !== 0) {
       throw new Error('Active payment plans must be disabled');
     }
+    if (Number(body.payments?.legacySecretCount ?? 0) !== 0) {
+      const names = Array.isArray(body.payments?.legacySecretsPresent)
+        ? body.payments.legacySecretsPresent.join(', ')
+        : 'unknown';
+      throw new Error(`Legacy payment secrets must be removed: ${names}`);
+    }
     if (!body.config?.launchReviewAcknowledged) {
       throw new Error('LAUNCH_REVIEW_ACK is not acknowledged');
     }

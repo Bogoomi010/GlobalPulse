@@ -18,6 +18,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Browser-based moderation ops screen for reviewing reported comments with an admin token
 - Browser-based ops action for refreshing public issue data with the same admin token
 - Token-protected runtime status for D1 schema, email, public origin, payment-disabled, and launch-review readiness
+- Token-protected runtime status reports legacy payment-provider secret presence without exposing secret values
 - Cloudflare Pages Functions for issues, anonymous reactions, login, wallet compatibility, free comments, reports, and disabled payment endpoints
 - D1 migrations for schema, disabled payment plans, free-comment support, and dummy issue seed data
 - Server-issued session tokens protect comments and wallet compatibility APIs

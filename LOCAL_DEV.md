@@ -51,6 +51,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Moderation reports require an admin token and can hide or restore a reported comment
 - The live issue refresh endpoint rejects requests without the admin token
 - The admin runtime status endpoint rejects requests without the admin token and reports local D1 schema/payment/email/origin settings with the token
+- The admin runtime status endpoint reports legacy payment secret presence without exposing values
 - The ops screen can trigger live issue refresh after the operator enters the admin token
 - The frontend ops screen accepts an operator-provided moderation token for queue review
 - The author can delete their own comment
@@ -65,7 +66,7 @@ This command is expected to fail in local development until production D1, Resen
 
 `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` is also required for production readiness. Use it only after completing `LAUNCH_REVIEW.md`; the value is an operator acknowledgement, not a legal substitute.
 
-Production readiness also fails when legacy payment variables such as `PAYMENT_PROVIDER`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`, or `VITE_TOSS_CLIENT_KEY` remain configured. GlobalPulse no longer accepts payments, so these secrets should be removed from Cloudflare Pages before launch.
+Production readiness also fails when legacy payment variables such as `PAYMENT_PROVIDER`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`, or `VITE_TOSS_CLIENT_KEY` remain configured. GlobalPulse no longer accepts payments, so these secrets should be removed from Cloudflare Pages before launch. The protected runtime status API reports only the names and count of configured legacy payment secrets, never their values.
 
 ## Production D1 Migrations
 

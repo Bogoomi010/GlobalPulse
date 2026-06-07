@@ -343,6 +343,12 @@ try {
     'Admin status should confirm APP_PUBLIC_ORIGIN matches the request origin',
   );
   assert(adminStatus.body.payments.activePlanCount === 0, 'Admin status should confirm disabled payment plans');
+  assert(adminStatus.body.payments.legacySecretCount === 0, 'Admin status should confirm no legacy payment secrets');
+  assert(
+    Array.isArray(adminStatus.body.payments.legacySecretsPresent) &&
+      adminStatus.body.payments.legacySecretsPresent.length === 0,
+    'Admin status should list no legacy payment secrets',
+  );
   assert(adminStatus.body.auth.provider === 'resend', 'Admin status should report resend auth provider');
   assert(adminStatus.body.auth.logDeliveryEnabled === true, 'Smoke admin status should report local log delivery');
 

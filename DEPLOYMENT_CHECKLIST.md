@@ -36,6 +36,7 @@
 - Confirm `/api/admin/status` reports that `APP_PUBLIC_ORIGIN` uses HTTPS and matches the deployed request origin.
 - Set `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` only after the launch review is complete.
 - Remove old payment provider variables and secrets: `PAYMENT_PROVIDER`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`, and `VITE_TOSS_CLIENT_KEY`.
+- Confirm `/api/admin/status` reports `Legacy payment secrets 0` through the Ops screen or `yarn admin:status`.
 
 ## Required Deployment Variables
 
@@ -78,6 +79,7 @@ GlobalPulse does not use Stripe, Toss, or other payment provider secrets. If old
 - `/api/moderation/reports` rejects missing admin tokens, lists reported comments, and can hide or restore a reviewed comment.
 - `/api/admin/refresh-issues` rejects missing admin tokens before any external source fetch runs.
 - `/api/admin/status` rejects missing admin tokens and reports non-secret runtime readiness, including required D1 table coverage, with an admin token.
+- `/api/admin/status` reports old payment-provider secret names only as non-secret presence indicators, and readiness fails until the count is zero.
 - The browser ops screen can connect with `MODERATION_ADMIN_TOKEN`, perform the same hide/restore review flow, trigger public issue refresh, and show runtime readiness.
 - Mobile and desktop layouts remain usable.
 - `LAUNCH_REVIEW_ACK` is set only after privacy, security, moderation, and operations review is complete.

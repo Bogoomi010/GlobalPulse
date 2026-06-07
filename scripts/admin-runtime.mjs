@@ -178,6 +178,7 @@ function printStatus(status) {
     `- App public origin matches request: ${formatBoolean(status.config?.appPublicOriginMatchesRequest)}`,
     `- Demo login enabled: ${formatBoolean(status.config?.demoLoginEnabled)}`,
     `- Active payment plans: ${status.payments?.activePlanCount ?? 'unknown'}`,
+    `- Legacy payment secrets: ${formatLegacyPaymentSecrets(status.payments)}`,
     `- Launch review acknowledged: ${formatBoolean(status.config?.launchReviewAcknowledged)}`,
     `- Runtime readiness: ${failures.length ? 'not ready' : 'ready'}`,
   ];
@@ -241,6 +242,12 @@ function readinessFailures(status) {
   if (Number(status?.payments?.activePlanCount ?? 0) !== 0) {
     failures.push('Active payment plans must be disabled.');
   }
+  if (Number(status?.payments?.legacySecretCount ?? 0) !== 0) {
+    const names = Array.isArray(status?.payments?.legacySecretsPresent)
+      ? status.payments.legacySecretsPresent.join(', ')
+      : 'unknown';
+    failures.push(`Legacy payment secrets must be removed: ${names}.`);
+  }
   if (!status?.config?.launchReviewAcknowledged) {
     failures.push('LAUNCH_REVIEW_ACK is not acknowledged.');
   }
@@ -252,4 +259,11 @@ function formatBoolean(value) {
   if (value === true) return 'yes';
   if (value === false) return 'no';
   return 'unknown';
+}
+
+function formatLegacyPaymentSecrets(payments) {
+  const count = Number(payments?.legacySecretCount ?? 0);
+  if (!count) return 'none';
+  const names = Array.isArray(payments?.legacySecretsPresent) ? payments.legacySecretsPresent.join(', ') : 'unknown';
+  return `${count} present (${names})`;
 }

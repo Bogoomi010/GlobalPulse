@@ -104,6 +104,7 @@ Do not continue to launch acknowledgement until production OTP email delivery is
 Run:
 
 ```bash
+yarn test:api
 yarn audit:public-copy
 APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review
 APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production
@@ -123,6 +124,7 @@ Expected evidence:
 - Public issue title, summary, and detail text avoid verdict-like fact/truth claims.
 - Deployed HTML, JS, and CSS assets avoid removed payment-provider, checkout, top-up, and paid-comment wording.
 - Deployed UI/policy copy includes signed-in free comment access, comment non-authority disclaimers, moderation/report handling, and neutral issue framing.
+- Local full-stack smoke verifies logout revocation, duplicate report idempotency, open/reviewed/all moderation queues, hide/restore/dismiss actions, and public visibility rules for hidden, restored, dismissed, and deleted comments.
 - Anonymous reaction smoke can like an issue, switch to dislike, cancel the reaction, restore baseline counts, and observe persisted aggregates through `/api/issues`.
 - Comment list loads publicly for an issue, and comment creation rejects missing signed-in sessions.
 - Protected APIs reject missing tokens.

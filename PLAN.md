@@ -26,7 +26,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Email OTP login endpoints are prepared for production through Resend, with demo login allowed only by explicit local binding
 - Comment reports are idempotent per anonymous session to reduce moderation queue spam
 - Token-protected moderation API and ops screen list reported comments and record hide/restore/dismiss review actions
-- Local full-stack smoke test runs Pages Functions with local D1 through Wrangler and verifies OTP login, reactions, free comments, reporting, moderation, logout, and disabled payment endpoints
+- Local full-stack smoke test runs Pages Functions with local D1 through Wrangler and verifies OTP login, reactions, free comments, duplicate report idempotency, open/reviewed/all moderation queues, hide/restore/dismiss actions, logout revocation, comment visibility rules, and disabled payment endpoints
 - Production deploy gate blocks deployment when D1, session secret, moderation admin token, public origin, launch review acknowledgement, verified email auth settings, or old payment-provider secrets are misconfigured
 - Production D1 migration script shares the local migration list and requires an explicit confirmation value before applying remote migrations
 - Production URL verification script checks the public app, D1 issue count, protected API behavior, disabled payment API behavior, moderation and live-refresh protection, and optional Resend OTP delivery
@@ -93,6 +93,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: Public launch verification checks issue title, summary, and detail text for verdict-like fact/truth claims.
    - Done: Public launch verification checks deployed HTML, JS, and CSS assets for removed payment-provider and paid-comment wording.
    - Done: Public launch verification checks deployed UI/policy copy for signed-in free comment access, comment non-authority disclaimers, moderation/report handling, and neutral issue framing.
+   - Done: Local full-stack smoke verifies duplicate report idempotency, open/reviewed/all moderation queues, hide/restore/dismiss actions, logout revocation, and hidden/restored/dismissed/deleted comment visibility rules.
    - Done: Public launch verification checks anonymous reaction persistence by liking, switching, cancelling, restoring baseline counts, and reading `/api/issues` aggregates.
    - Done: Public launch verification checks comment list loading and unauthenticated comment write rejection.
    - Done: `yarn audit:public-copy` checks that visible UI copy avoids removed payment-provider and paid-comment wording.

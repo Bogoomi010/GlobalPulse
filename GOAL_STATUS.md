@@ -31,6 +31,7 @@ Do not describe the service as production-ready until the remaining operator-con
 - Public anonymous reaction smoke verifies like, switch to dislike, cancel, baseline count restoration, and `/api/issues` aggregate persistence.
 - Public comment list loads for an issue, while comment creation rejects requests without a signed-in session.
 - `yarn audit:public-copy` confirms local public UI copy does not use removed payment-provider, checkout, top-up, or paid-comment wording.
+- `yarn test:api` confirms local full-stack behavior for logout revocation, duplicate report idempotency, open/reviewed/all moderation queues, hide/restore/dismiss actions, and public visibility rules for hidden, restored, dismissed, and deleted comments.
 - Protected wallet, moderation, issue-refresh, and admin-status APIs reject unauthenticated requests.
 - `/api/payments/create`, `/api/payments/confirm`, `/api/payments/fail`, and `/api/payments/webhook` return `410 Gone`.
 - Mobile and desktop layouts have recorded evidence in `LAUNCH_REVIEW.md`.

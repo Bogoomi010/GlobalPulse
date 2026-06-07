@@ -421,6 +421,20 @@ try {
     'Reported comment should appear in the moderation queue',
   );
 
+  const allModerationQueue = await jsonRequest(baseUrl, '/api/moderation/reports?status=all', {
+    headers: moderationAuth,
+  });
+  assert(allModerationQueue.response.ok, 'All moderation report queue failed');
+  assert(
+    allModerationQueue.body.reports.some(
+      (item) =>
+        item.commentId === freeComment.body.comment.id &&
+        item.commentStatus === 'reported' &&
+        item.openReportCount === 1,
+    ),
+    'All moderation queue should include open reported comments',
+  );
+
   const hideReportedComment = await jsonRequest(baseUrl, '/api/moderation/reports', {
     method: 'PATCH',
     headers: moderationAuth,
@@ -481,6 +495,93 @@ try {
     ),
     'Restored moderated comment should be returned publicly',
   );
+
+  const dismissComment = await jsonRequest(baseUrl, '/api/comments', {
+    method: 'POST',
+    headers: auth,
+    body: JSON.stringify({
+      issueId: 'issue-001',
+      content: 'Smoke test dismiss comment',
+      idempotencyKey: randomUUID(),
+    }),
+  });
+  assert(dismissComment.response.ok, 'Dismiss test comment failed');
+  assert(dismissComment.body.comment.cost === 0, 'Dismiss test comment should be free');
+
+  const dismissReport = await jsonRequest(baseUrl, '/api/comment-reports', {
+    method: 'POST',
+    body: JSON.stringify({
+      commentId: dismissComment.body.comment.id,
+      anonymousToken: randomUUID(),
+      reason: 'policy_review',
+    }),
+  });
+  assert(dismissReport.response.ok, 'Dismiss test report failed');
+  assert(dismissReport.body.status === 'received', 'Dismiss test report should be accepted');
+
+  const dismissReportedComment = await jsonRequest(baseUrl, '/api/moderation/reports', {
+    method: 'PATCH',
+    headers: moderationAuth,
+    body: JSON.stringify({
+      action: 'dismiss',
+      commentId: dismissComment.body.comment.id,
+      note: 'Smoke test dismiss',
+    }),
+  });
+  assert(dismissReportedComment.response.ok, 'Moderation dismiss action failed');
+  assert(dismissReportedComment.body.commentStatus === 'visible', 'Moderation dismiss should keep the comment visible');
+  assert(dismissReportedComment.body.openReportCount === 0, 'Moderation dismiss should close open reports');
+
+  const reviewedModerationQueueAfterDismiss = await jsonRequest(baseUrl, '/api/moderation/reports?status=reviewed', {
+    headers: moderationAuth,
+  });
+  assert(reviewedModerationQueueAfterDismiss.response.ok, 'Reviewed moderation report queue after dismiss failed');
+  assert(
+    reviewedModerationQueueAfterDismiss.body.reports.some(
+      (item) =>
+        item.commentId === dismissComment.body.comment.id &&
+        item.review?.action === 'dismiss' &&
+        item.openReportCount === 0,
+    ),
+    'Reviewed moderation queue should include the dismiss decision',
+  );
+
+  const allModerationQueueAfterDismiss = await jsonRequest(baseUrl, '/api/moderation/reports?status=all', {
+    headers: moderationAuth,
+  });
+  assert(allModerationQueueAfterDismiss.response.ok, 'All moderation report queue after dismiss failed');
+  assert(
+    allModerationQueueAfterDismiss.body.reports.some(
+      (item) =>
+        item.commentId === dismissComment.body.comment.id &&
+        item.review?.action === 'dismiss' &&
+        item.openReportCount === 0,
+    ),
+    'All moderation queue should include the dismiss decision',
+  );
+
+  const commentsAfterModerationDismiss = await jsonRequest(
+    baseUrl,
+    `/api/comments?issueId=${dismissComment.body.comment.issueId}`,
+  );
+  assert(commentsAfterModerationDismiss.response.ok, 'Comment list after moderation dismiss failed');
+  assert(
+    commentsAfterModerationDismiss.body.comments.some(
+      (comment) => comment.id === dismissComment.body.comment.id && comment.status === 'visible',
+    ),
+    'Dismissed moderated comment should remain visible publicly',
+  );
+
+  const deleteDismissComment = await jsonRequest(
+    baseUrl,
+    `/api/comments?commentId=${dismissComment.body.comment.id}`,
+    {
+      method: 'DELETE',
+      headers: auth,
+    },
+  );
+  assert(deleteDismissComment.response.ok, 'Dismiss test comment delete request failed');
+  assert(deleteDismissComment.body.deleted === true, 'Dismiss test comment should be deleted');
 
   const deleteComment = await jsonRequest(
     baseUrl,

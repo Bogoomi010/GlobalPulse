@@ -33,6 +33,19 @@ const jsonRequest = async (baseUrl, pathname, options = {}) => {
   return { body, response };
 };
 
+const runLaunchReviewReport = (baseUrl, env = {}) =>
+  execFileSync('node', ['scripts/launch-review-report.mjs', '--allow-http', baseUrl], {
+    cwd: root,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      APP_PUBLIC_ORIGIN: baseUrl,
+      MODERATION_ADMIN_TOKEN: '',
+      PRODUCTION_ADMIN_TOKEN: '',
+      ...env,
+    },
+  });
+
 const freePort = async () =>
   new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -351,6 +364,32 @@ try {
   );
   assert(adminStatus.body.auth.provider === 'resend', 'Admin status should report resend auth provider');
   assert(adminStatus.body.auth.logDeliveryEnabled === true, 'Smoke admin status should report local log delivery');
+
+  const publicLaunchReview = runLaunchReviewReport(baseUrl);
+  assert(
+    publicLaunchReview.includes('| Admin runtime status available | SKIP |'),
+    'Public launch review report should skip protected runtime without an admin token',
+  );
+  assert(
+    !publicLaunchReview.includes('smoke-moderation-token'),
+    'Public launch review report must not print the moderation token',
+  );
+
+  const protectedLaunchReview = runLaunchReviewReport(baseUrl, {
+    PRODUCTION_ADMIN_TOKEN: 'smoke-moderation-token',
+  });
+  assert(
+    protectedLaunchReview.includes('| Admin runtime status available | PASS | ok |'),
+    'Protected launch review report should fetch admin runtime status',
+  );
+  assert(
+    protectedLaunchReview.includes('- Legacy payment secrets: none'),
+    'Protected launch review report should summarize removed legacy payment secrets',
+  );
+  assert(
+    !protectedLaunchReview.includes('smoke-moderation-token'),
+    'Protected launch review report must not print the moderation token',
+  );
 
   const moderationQueue = await jsonRequest(baseUrl, '/api/moderation/reports?status=open', {
     headers: moderationAuth,

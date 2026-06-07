@@ -50,18 +50,31 @@ await record('Wallet API rejects missing session', async () => {
   return '401';
 });
 
-await record('Payment create is disabled', async () => {
-  const { response } = await fetchJson('/api/payments/create', {
-    body: JSON.stringify({
-      idempotencyKey: 'verify',
-      origin: origin.origin,
-      planId: 'removed',
-    }),
-    method: 'POST',
-  });
-  if (response.status !== 410) throw new Error(`Expected 410, got ${response.status}`);
-  return '410';
-});
+await record('Payment create is disabled', () =>
+  expectPaymentGone('/api/payments/create', {
+    idempotencyKey: 'verify-create',
+    origin: origin.origin,
+    planId: 'removed',
+  }),
+);
+
+await record('Payment confirm is disabled', () =>
+  expectPaymentGone('/api/payments/confirm', {
+    paymentId: 'removed',
+  }),
+);
+
+await record('Payment fail is disabled', () =>
+  expectPaymentGone('/api/payments/fail', {
+    paymentId: 'removed',
+  }),
+);
+
+await record('Payment webhook is disabled', () =>
+  expectPaymentGone('/api/payments/webhook', {
+    provider: 'removed',
+  }),
+);
 
 await record('Moderation API rejects missing admin token', async () => {
   const { response } = await fetchJson('/api/moderation/reports');
@@ -188,4 +201,13 @@ async function fetchJson(pathname, init = {}) {
     }
   }
   return { body, response };
+}
+
+async function expectPaymentGone(pathname, body) {
+  const { response } = await fetchJson(pathname, {
+    body: JSON.stringify(body),
+    method: 'POST',
+  });
+  if (response.status !== 410) throw new Error(`Expected 410, got ${response.status}`);
+  return '410';
 }

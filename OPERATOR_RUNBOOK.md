@@ -116,7 +116,7 @@ Expected evidence:
 - Public app loads.
 - `/api/issues` returns at least 20 issues.
 - Protected APIs reject missing tokens.
-- Payment creation returns `410`.
+- Payment create, confirm, fail, and webhook endpoints return `410`.
 - Admin runtime status is skipped by `launch:review` until an admin token is provided.
 
 ## Phase 4: Protected Runtime Evidence

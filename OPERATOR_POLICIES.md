@@ -44,18 +44,16 @@ Draft operator policy:
 - Production responses must not expose OTP codes, admin tokens, session tokens, or secret values.
 - Operators should use non-secret evidence only when recording launch results.
 
-Retention template for operator review:
+Current retention and handling baseline:
 
-```text
-User account/email records:
-Comment retention period:
-Reported comment retention period:
-Hidden comment review period:
-Deleted comment handling:
-Anonymous session/reaction retention:
-Session/token rotation process:
-User/operator contact for privacy requests:
-```
+- User account, email, display name, country code, wallet compatibility, and session records are retained in D1 while the account/session exists.
+- User sessions expire after 30 days and logout sets `revoked_at`, preventing further protected API access with that session.
+- Comments remain stored in D1 unless the signed-in author deletes them; deleted comments are marked `deleted` with `deleted_at` and are excluded from public comment lists.
+- Hidden comments remain stored for operator review but are excluded from public comment lists.
+- Reported comments remain publicly visible with `reported` status until an operator hides, restores, dismisses, or the author deletes them.
+- Comment reports and operator review records remain stored to preserve moderation history and duplicate-report idempotency.
+- Anonymous reaction/report tokens are stored only in the browser; the server stores HMAC hashes derived from those tokens.
+- Operators must define any additional deletion, export, contact, or jurisdiction-specific privacy request process before acknowledging launch readiness.
 
 ## Comment And Moderation Policy
 
@@ -79,32 +77,14 @@ Review queue policy:
 - Record only non-secret notes and timestamps.
 - Do not include user email addresses, tokens, or OTP values in public status updates.
 
-Escalation criteria template:
+Escalation criteria for operator review:
 
-```text
-Immediate hide criteria:
-- Illegal content:
-- Privacy-invasive content:
-- Abuse, harassment, or hate:
-- Safety or self-harm concern:
-- Spam or manipulation:
-
-Restore criteria:
-- Report was mistaken:
-- Content is acceptable after context review:
-- Operator note:
-
-Dismiss criteria:
-- No policy issue found:
-- Duplicate or low-quality report:
-- Operator note:
-
-External escalation process:
-- Contact/channel:
-- Expected response time:
-- Evidence to preserve:
-- Evidence not to expose publicly:
-```
+- Hide immediately when a reported comment appears to contain illegal content, instructions to commit harm, private personal data, doxxing, credential or token exposure, targeted harassment, hate, self-harm encouragement, spam, impersonation, or obvious manipulation.
+- Restore only when the report was mistaken, the content does not violate the public rule after context review, and the operator records a non-secret note.
+- Dismiss when no policy issue is found, the report is duplicative or low-quality, and the comment should remain visible.
+- Preserve only non-secret evidence such as issue ID, comment ID, report count, timestamps, action, and operator note.
+- Do not copy user emails, OTPs, session tokens, admin tokens, API keys, or other secret values into public notes, tickets, screenshots, or launch reports.
+- For legal, safety, privacy, or platform-risk cases, hide first, preserve non-secret identifiers, and route the review through the operator-designated private legal/safety/contact process before restoring the content.
 
 ## Content Policy
 

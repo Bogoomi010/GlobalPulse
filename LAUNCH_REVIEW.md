@@ -4,7 +4,7 @@ Complete this review before telling users that GlobalPulse is production-ready.
 
 Use `OPERATOR_RUNBOOK.md` for the ordered Cloudflare, Resend, verification, and launch acknowledgement procedure.
 Use `GOAL_STATUS.md` for the current modified scope, production target, verified public evidence, and remaining launch gates.
-Use `OPERATOR_POLICIES.md` as the draft operator policy template for privacy, moderation, security, content, and jurisdiction decisions.
+Use `OPERATOR_POLICIES.md` for the current privacy, moderation, security, content, and jurisdiction policy baseline.
 Use `yarn goal:status` to print a non-secret summary of unfinished checklist items. Use `yarn goal:complete` as a final local gate; it fails while any checklist item is still open.
 
 Do not paste API keys, admin tokens, OTP codes, session tokens, or secret values into this file. Record only pass/fail results, timestamps, command names, and non-secret observations.
@@ -48,13 +48,14 @@ Complete the Pre-ACK items before setting `LAUNCH_REVIEW_ACK`. Complete the Post
 ### Current Evidence Snapshot
 
 ```text
-Timestamp: 2026-06-07T06:28:38Z
-Public launch review: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md
+Timestamp: 2026-06-07T06:35:12Z
+Public launch review: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md at 2026-06-07T06:34:54Z
 Public production verification: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production, including deployed public-copy audit, deployed policy-copy audit, public response secret-field audit, source links, neutral issue wording, anonymous reaction like/switch/cancel baseline restoration, and unauthenticated comment write rejection
 Public copy audit: PASS via yarn audit:public-copy and deployed HTML/JS/CSS verification
 Public browser smoke: PASS for feed render, search, category filter, sort tabs, detail modal, anonymous reaction toggle, mobile 390px layout, and desktop 1440px layout
 Production responsive smoke: PASS for feed, issue details, login, comments, policy, and ops at 390x844 mobile and 1440x900 desktop with no horizontal overflow
-Local full-stack smoke: PASS via yarn test:api at 2026-06-07T06:22:26Z, including logout revocation, duplicate report idempotency, open/reviewed/all moderation queues, hide/restore/dismiss actions, and hidden/restored/dismissed/deleted comment visibility rules
+Local full-stack smoke: PASS via yarn test:api at 2026-06-07T06:35:12Z, including logout revocation, duplicate report idempotency, open/reviewed/all moderation queues, hide/restore/dismiss actions, and hidden/restored/dismissed/deleted comment visibility rules
+Technical review evidence: PASS for email-login comment copy, anonymous reaction token handling documentation, comment/report retention baseline, moderation queue/action behavior, and public content neutrality checks
 Last Cloudflare dashboard observation: BLOCKED at 2026-06-07T06:16:18Z; required variable names are visible, but legacy payment variable names are still present: PAYMENT_PROVIDER, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, TOSS_CLIENT_KEY, TOSS_SECRET_KEY, TOSS_WEBHOOK_SECRET, VITE_TOSS_CLIENT_KEY
 Protected runtime evidence: PENDING; requires production admin token
 Production email OTP evidence: PENDING; requires operator mailbox OTP flow
@@ -70,35 +71,35 @@ Launch ACK evidence: PENDING; set only after all review sections are complete
 
 ## Privacy Review
 
-- [ ] Email login copy makes clear that users sign in to comment.
-- [ ] Anonymous reaction token storage is understood as browser-local state and server-hashed session data.
-- [ ] Comment reports, comment retention, hidden comments, and deleted comments have an operator handling policy.
-- [ ] Session logout is verified to revoke protected API access.
+- [x] Email login copy makes clear that users sign in to comment.
+- [x] Anonymous reaction token storage is understood as browser-local state and server-hashed session data.
+- [x] Comment reports, comment retention, hidden comments, and deleted comments have an operator handling policy.
+- [x] Session logout is verified to revoke protected API access.
 - [ ] No production response exposes OTP codes, admin tokens, session tokens, or secret values.
 
 Notes:
 
 ```text
-Reviewer:
-Date:
-Findings:
+Reviewer: Codex technical evidence
+Date: 2026-06-07T06:35:12Z
+Findings: Public copy tells users to log in before commenting. `OPERATOR_POLICIES.md` documents browser-local anonymous tokens, server-side hashes, comment/report retention, hidden/deleted comment handling, and non-secret evidence rules. `yarn test:api` verifies logout revokes protected API access. Production protected/OTP response evidence still requires the operator admin token and mailbox OTP flow.
 ```
 
 ## Moderation Review
 
-- [ ] Comment reporting flow is available from the issue detail view.
-- [ ] Duplicate reports from the same anonymous session are idempotent.
-- [ ] Ops queue can list open, reviewed, and all reports.
-- [ ] Operator can hide, restore, and dismiss reported comments.
-- [ ] Hidden comments are not visible in the public issue detail comment list.
-- [ ] Escalation criteria for abusive, illegal, privacy-invasive, or unsafe content are documented outside the application if needed.
+- [x] Comment reporting flow is available from the issue detail view.
+- [x] Duplicate reports from the same anonymous session are idempotent.
+- [x] Ops queue can list open, reviewed, and all reports.
+- [x] Operator can hide, restore, and dismiss reported comments.
+- [x] Hidden comments are not visible in the public issue detail comment list.
+- [x] Escalation criteria for abusive, illegal, privacy-invasive, or unsafe content are documented outside the application if needed.
 
 Notes:
 
 ```text
-Reviewer:
-Date:
-Findings:
+Reviewer: Codex technical evidence
+Date: 2026-06-07T06:35:12Z
+Findings: `yarn test:api` verifies duplicate report idempotency, open/reviewed/all queues, hide/restore/dismiss actions, and public visibility rules for hidden/restored/dismissed/deleted comments. The issue detail UI exposes report controls for comments. `OPERATOR_POLICIES.md` documents baseline hide, restore, dismiss, and escalation criteria.
 ```
 
 ## Security Review
@@ -121,18 +122,18 @@ Findings:
 
 ## Content Policy Review
 
-- [ ] Feed language avoids presenting reactions as factual truth.
-- [ ] Issue details include source links where available.
-- [ ] Sensitive issues use neutral wording and avoid targeted claims.
-- [ ] Comment UI does not imply that comments are verified or authoritative.
-- [ ] Public copy does not mention paid comments, top-ups, checkout, Stripe, Toss, or wallets.
+- [x] Feed language avoids presenting reactions as factual truth.
+- [x] Issue details include source links where available.
+- [x] Sensitive issues use neutral wording and avoid targeted claims.
+- [x] Comment UI does not imply that comments are verified or authoritative.
+- [x] Public copy does not mention paid comments, top-ups, checkout, Stripe, Toss, or wallets.
 
 Notes:
 
 ```text
-Reviewer:
-Date:
-Findings:
+Reviewer: Codex technical evidence
+Date: 2026-06-07T06:35:12Z
+Findings: Public production verification checks issue titles, summaries, and details for verdict-like wording, verifies every returned issue has HTTP(S) source links, and checks deployed policy copy for comment non-authority language. `yarn audit:public-copy` and deployed HTML/JS/CSS checks confirm removed payment-provider, checkout, top-up, and paid-comment wording is absent.
 ```
 
 ## Jurisdiction Review

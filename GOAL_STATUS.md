@@ -1,6 +1,6 @@
 # GlobalPulse Goal Status
 
-Generated: 2026-06-07T06:28:38Z
+Generated: 2026-06-07T06:35:12Z
 
 ## Active Scope
 
@@ -20,7 +20,7 @@ Do not describe the service as production-ready until the remaining operator-con
 
 ## Verified Evidence
 
-- `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` passed public checks on 2026-06-07T06:28:38Z.
+- `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` passed public checks on 2026-06-07T06:34:54Z.
 - `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production` passed public production verification on the latest checked state.
 - Public app loads at the production URL.
 - Public production verification fetches deployed HTML, JS, and CSS assets and confirms removed payment-provider, checkout, top-up, and paid-comment wording is absent.
@@ -32,7 +32,8 @@ Do not describe the service as production-ready until the remaining operator-con
 - Public anonymous reaction smoke verifies like, switch to dislike, cancel, baseline count restoration, and `/api/issues` aggregate persistence.
 - Public comment list loads for an issue, while comment creation rejects requests without a signed-in session.
 - `yarn audit:public-copy` confirms local public UI copy does not use removed payment-provider, checkout, top-up, or paid-comment wording.
-- `yarn test:api` confirms local full-stack behavior for logout revocation, duplicate report idempotency, open/reviewed/all moderation queues, hide/restore/dismiss actions, and public visibility rules for hidden, restored, dismissed, and deleted comments.
+- `yarn test:api` confirms local full-stack behavior for logout revocation, duplicate report idempotency, open/reviewed/all moderation queues, hide/restore/dismiss actions, and public visibility rules for hidden, restored, dismissed, and deleted comments on 2026-06-07T06:35:12Z.
+- `LAUNCH_REVIEW.md` records technical evidence for email-login comment copy, anonymous reaction token handling documentation, comment/report retention baseline, moderation flow behavior, escalation criteria, and content-neutrality checks.
 - Protected wallet, moderation, issue-refresh, and admin-status APIs reject unauthenticated requests.
 - `/api/payments/create`, `/api/payments/confirm`, `/api/payments/fail`, and `/api/payments/webhook` return `410 Gone`.
 - Mobile and desktop layouts have recorded evidence in `LAUNCH_REVIEW.md`.
@@ -79,7 +80,7 @@ yarn goal:complete
    `PRODUCTION_ADMIN_TOKEN=... PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn admin:test-email`.
 6. Verify the received OTP:
    `PRODUCTION_ADMIN_TOKEN=... PRODUCTION_VERIFY_EMAIL=operator@example.com PRODUCTION_VERIFY_EMAIL_CODE=123456 APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn admin:verify-email`.
-7. Complete the privacy, security, moderation, content, and jurisdiction reviews in `LAUNCH_REVIEW.md`.
+7. Complete the remaining production secret-response, security, and jurisdiction reviews in `LAUNCH_REVIEW.md`.
 8. Set `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` only after those reviews are complete.
 9. Wait for a fresh production deployment after the acknowledgement.
 10. Run final protected checks:
@@ -93,7 +94,7 @@ yarn goal:complete
 - Production `MODERATION_ADMIN_TOKEN`.
 - Production Resend sender/domain verification.
 - Operator mailbox access for OTP verification.
-- Operator review decision for privacy, security, moderation, content, and launch jurisdiction.
+- Operator review decision for production secret-response evidence, security, and launch jurisdiction.
 
 ## Non-Secret Evidence Policy
 

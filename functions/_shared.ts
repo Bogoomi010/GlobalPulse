@@ -9,6 +9,7 @@ export type Env = {
   ALLOW_DEMO_LOGIN?: string;
   MODERATION_ADMIN_TOKEN?: string;
   APP_PUBLIC_ORIGIN?: string;
+  LAUNCH_REVIEW_ACK?: string;
 };
 
 export type ApiIssue = {

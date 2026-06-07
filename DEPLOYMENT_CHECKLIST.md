@@ -69,7 +69,8 @@ GlobalPulse does not use Stripe, Toss, or other payment provider secrets. If old
 - Duplicate comment reports from the same anonymous session are idempotent.
 - `/api/moderation/reports` rejects missing admin tokens, lists reported comments, and can hide or restore a reviewed comment.
 - `/api/admin/refresh-issues` rejects missing admin tokens before any external source fetch runs.
-- The browser ops screen can connect with `MODERATION_ADMIN_TOKEN`, perform the same hide/restore review flow, and trigger public issue refresh.
+- `/api/admin/status` rejects missing admin tokens and reports non-secret runtime readiness with an admin token.
+- The browser ops screen can connect with `MODERATION_ADMIN_TOKEN`, perform the same hide/restore review flow, trigger public issue refresh, and show runtime readiness.
 - Mobile and desktop layouts remain usable.
 - `LAUNCH_REVIEW_ACK` is set only after privacy, security, moderation, and operations review is complete.
 

@@ -99,6 +99,30 @@ type IssueRefreshResult = {
   status: 'refreshed';
 };
 
+type RuntimeStatus = {
+  auth: {
+    emailFromConfigured: boolean;
+    logDeliveryEnabled: boolean;
+    provider: string;
+    resendConfigured: boolean;
+  };
+  config: {
+    appPublicOriginConfigured: boolean;
+    demoLoginEnabled: boolean;
+    launchReviewAcknowledged: boolean;
+    moderationAdminTokenConfigured: boolean;
+    sessionSecretConfigured: boolean;
+  };
+  d1: {
+    issueCount: number;
+  };
+  payments: {
+    activePlanCount: number;
+    mode: 'disabled';
+  };
+  status: 'ok';
+};
+
 type AuthStep = 'details' | 'code';
 
 type PendingAuth = {
@@ -531,6 +555,7 @@ export default function App() {
   const [moderationBusy, setModerationBusy] = useState(false);
   const [moderationMessage, setModerationMessage] = useState('');
   const [issueRefreshBusy, setIssueRefreshBusy] = useState(false);
+  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
 
   const activeIssue = issues.find((issue) => issue.id === activeIssueId) ?? null;
   const activeSessionToken = user?.sessionToken;
@@ -595,6 +620,13 @@ export default function App() {
     let cancelled = false;
     setModerationBusy(true);
     setModerationMessage('');
+    void requestJson<RuntimeStatus>('/api/admin/status', {
+      headers: moderationHeaders(moderationToken),
+    }).then((data) => {
+      if (cancelled) return;
+      if (data) setRuntimeStatus(data);
+      else setRuntimeStatus(null);
+    });
     void requestJson<{ reports: ModerationReport[] }>(
       `/api/moderation/reports?status=${encodeURIComponent(moderationStatus)}`,
       { headers: moderationHeaders(moderationToken) },
@@ -603,6 +635,7 @@ export default function App() {
       setModerationBusy(false);
       if (!data) {
         setModerationReports([]);
+        setRuntimeStatus(null);
         setModerationMessage('운영 토큰이 맞지 않거나 모더레이션 API가 아직 연결되지 않았습니다.');
         return;
       }
@@ -907,6 +940,7 @@ export default function App() {
   const clearModerationToken = () => {
     setModerationToken('');
     setModerationReports([]);
+    setRuntimeStatus(null);
     setModerationMessage('');
     localStorage.removeItem('globalpulse:moderation-token');
   };
@@ -982,10 +1016,15 @@ export default function App() {
         if (issueData?.issues?.length) {
           persistIssues(issueData.issues);
         }
-        setIssueRefreshBusy(false);
-        setModerationMessage(
-          `공개 이슈 갱신 완료: ${data.upserted}개 저장, Wikimedia ${data.sources.wikimedia}개, Hacker News ${data.sources.hackerNews}개, GDELT ${data.sources.gdelt}개.`,
-        );
+        void requestJson<RuntimeStatus>('/api/admin/status', {
+          headers: moderationHeaders(moderationToken),
+        }).then((statusData) => {
+          if (statusData) setRuntimeStatus(statusData);
+          setIssueRefreshBusy(false);
+          setModerationMessage(
+            `공개 이슈 갱신 완료: ${data.upserted}개 저장, Wikimedia ${data.sources.wikimedia}개, Hacker News ${data.sources.hackerNews}개, GDELT ${data.sources.gdelt}개.`,
+          );
+        });
       });
     });
   };
@@ -1132,6 +1171,7 @@ export default function App() {
             onStatusChange={setModerationStatus}
             onTokenSubmit={handleModerationToken}
             reports={moderationReports}
+            runtimeStatus={runtimeStatus}
             status={moderationStatus}
             tokenConfigured={Boolean(moderationToken)}
           />
@@ -1451,6 +1491,7 @@ function IssueModal({
 function ModerationView({
   tokenConfigured,
   reports,
+  runtimeStatus,
   status,
   busy,
   issueRefreshBusy,
@@ -1463,6 +1504,7 @@ function ModerationView({
 }: {
   tokenConfigured: boolean;
   reports: ModerationReport[];
+  runtimeStatus: RuntimeStatus | null;
   status: ModerationStatus;
   busy: boolean;
   issueRefreshBusy: boolean;
@@ -1522,6 +1564,7 @@ function ModerationView({
             {issueRefreshBusy ? 'Refreshing issues' : 'Refresh public issues'}
           </button>
         </div>
+        <OpsRuntimeStatus runtimeStatus={runtimeStatus} tokenConfigured={tokenConfigured} />
         {message ? (
           <p className="mt-4 rounded-2xl border border-cyan-300/30 bg-cyan-300/10 p-3 text-sm leading-6 text-cyan-100">
             {message}
@@ -1567,6 +1610,60 @@ function ModerationView({
         </div>
       </div>
     </section>
+  );
+}
+
+function OpsRuntimeStatus({
+  runtimeStatus,
+  tokenConfigured,
+}: {
+  runtimeStatus: RuntimeStatus | null;
+  tokenConfigured: boolean;
+}) {
+  const emailReady = Boolean(
+    runtimeStatus?.auth.provider === 'resend' &&
+      runtimeStatus.auth.resendConfigured &&
+      runtimeStatus.auth.emailFromConfigured &&
+      !runtimeStatus.auth.logDeliveryEnabled,
+  );
+  const runtimeReady = Boolean(
+    runtimeStatus?.config.sessionSecretConfigured &&
+      runtimeStatus.config.moderationAdminTokenConfigured &&
+      runtimeStatus.config.appPublicOriginConfigured &&
+      !runtimeStatus.config.demoLoginEnabled,
+  );
+  const d1Ready = Boolean(runtimeStatus && runtimeStatus.d1.issueCount >= 20);
+  const paymentsDisabled = Boolean(runtimeStatus && runtimeStatus.payments.activePlanCount === 0);
+  const launchReady = Boolean(runtimeStatus?.config.launchReviewAcknowledged);
+
+  return (
+    <div className="mt-5 border-t border-white/10 pt-5">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Runtime status</p>
+      {!tokenConfigured ? (
+        <p className="mt-2 text-sm leading-6 text-slate-400">운영 토큰을 입력하면 배포 설정 상태를 확인할 수 있습니다.</p>
+      ) : null}
+      {tokenConfigured && !runtimeStatus ? (
+        <p className="mt-2 text-sm leading-6 text-slate-400">런타임 상태를 불러오는 중입니다.</p>
+      ) : null}
+      {runtimeStatus ? (
+        <div className="mt-3 grid gap-2">
+          <OpsStatusLine label={`D1 issues ${runtimeStatus.d1.issueCount}`} ok={d1Ready} />
+          <OpsStatusLine label="Resend email login" ok={emailReady} />
+          <OpsStatusLine label="Runtime secrets" ok={runtimeReady} />
+          <OpsStatusLine label="Payments disabled" ok={paymentsDisabled} />
+          <OpsStatusLine label="Launch review ACK" ok={launchReady} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function OpsStatusLine({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-slate-300">
+      {ok ? <CheckCircle2 className="h-4 w-4 text-emerald-200" /> : <AlertTriangle className="h-4 w-4 text-amber-200" />}
+      <span>{label}</span>
+    </div>
   );
 }
 

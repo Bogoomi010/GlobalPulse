@@ -76,6 +76,12 @@ await record('Issue refresh API rejects missing admin token', async () => {
   return '401';
 });
 
+await record('Admin status API rejects missing admin token', async () => {
+  const { response } = await fetchJson('/api/admin/status');
+  if (response.status !== 401) throw new Error(`Expected 401, got ${response.status}`);
+  return '401';
+});
+
 if (verificationEmail) {
   await record('Resend OTP request sends production email', async () => {
     const { body, response } = await fetchJson('/api/auth/request-code', {

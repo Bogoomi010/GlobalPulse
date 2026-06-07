@@ -327,7 +327,19 @@ try {
   });
   assert(refreshIssuesWithoutAuth.response.status === 401, 'Issue refresh must reject missing admin token');
 
+  const adminStatusWithoutAuth = await jsonRequest(baseUrl, '/api/admin/status');
+  assert(adminStatusWithoutAuth.response.status === 401, 'Admin status must reject missing admin token');
+
   const moderationAuth = { Authorization: 'Bearer smoke-moderation-token' };
+  const adminStatus = await jsonRequest(baseUrl, '/api/admin/status', {
+    headers: moderationAuth,
+  });
+  assert(adminStatus.response.ok, 'Admin status request failed');
+  assert(adminStatus.body.d1.issueCount === 20, 'Admin status should report seeded issue count');
+  assert(adminStatus.body.payments.activePlanCount === 0, 'Admin status should confirm disabled payment plans');
+  assert(adminStatus.body.auth.provider === 'resend', 'Admin status should report resend auth provider');
+  assert(adminStatus.body.auth.logDeliveryEnabled === true, 'Smoke admin status should report local log delivery');
+
   const moderationQueue = await jsonRequest(baseUrl, '/api/moderation/reports?status=open', {
     headers: moderationAuth,
   });

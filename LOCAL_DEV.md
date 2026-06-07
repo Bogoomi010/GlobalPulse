@@ -50,6 +50,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Duplicate reports from the same anonymous session do not create extra report rows
 - Moderation reports require an admin token and can hide or restore a reported comment
 - The live issue refresh endpoint rejects requests without the admin token
+- The admin runtime status endpoint rejects requests without the admin token and reports local D1/payment/email settings with the token
 - The ops screen can trigger live issue refresh after the operator enters the admin token
 - The frontend ops screen accepts an operator-provided moderation token for queue review
 - The author can delete their own comment

@@ -1581,7 +1581,7 @@ function InfoPage({ type }: { type: 'about' | 'policy' }) {
         <div className="grid gap-4 text-sm leading-6 text-slate-300">
           <p>GlobalPulse는 글로벌 핫이슈에 대한 익명 글로벌 반응을 보여주는 대시보드입니다. 이 서비스는 정답, 사실 확정, 진실 판정을 제공하지 않습니다.</p>
           <p>좋아요/싫어요는 로그인 없이 가능하고, 댓글은 로그인한 사용자가 무료로 작성하는 구조입니다.</p>
-          <p>뉴스 API, Google Trends, Reddit, Hacker News, X Trends 연동은 데이터 레이어를 통해 추후 연결하는 것을 전제로 합니다.</p>
+          <p>Wikimedia Current Events, Hacker News, GDELT 기반 공개 데이터 갱신 API를 통해 운영자가 이슈를 보강할 수 있습니다.</p>
         </div>
       ) : (
         <div className="grid gap-4 text-sm leading-6 text-slate-300">

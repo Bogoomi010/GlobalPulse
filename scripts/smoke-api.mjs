@@ -322,6 +322,11 @@ try {
   const moderationWithoutAuth = await jsonRequest(baseUrl, '/api/moderation/reports');
   assert(moderationWithoutAuth.response.status === 401, 'Moderation reports must reject missing admin token');
 
+  const refreshIssuesWithoutAuth = await jsonRequest(baseUrl, '/api/admin/refresh-issues', {
+    method: 'POST',
+  });
+  assert(refreshIssuesWithoutAuth.response.status === 401, 'Issue refresh must reject missing admin token');
+
   const moderationAuth = { Authorization: 'Bearer smoke-moderation-token' };
   const moderationQueue = await jsonRequest(baseUrl, '/api/moderation/reports?status=open', {
     headers: moderationAuth,

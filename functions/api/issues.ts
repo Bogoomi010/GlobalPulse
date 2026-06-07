@@ -33,6 +33,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         ) AS comment_count
       FROM issues i
       ORDER BY i.hot_score DESC, i.created_at DESC
+      LIMIT 80
     `,
   ).all<IssueRow>();
 

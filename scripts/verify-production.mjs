@@ -35,12 +35,12 @@ await record('Public app loads', async () => {
   return `${response.status} ${response.contentType}`;
 });
 
-await record('/api/issues returns seeded D1 issues', async () => {
+await record('/api/issues returns D1 issues', async () => {
   const { body, response } = await fetchJson('/api/issues');
   if (!response.ok) throw new Error(`Expected 200, got ${response.status}`);
   if (!Array.isArray(body?.issues)) throw new Error('issues must be an array');
-  if (body.issues.length !== 20) throw new Error(`Expected 20 issues, got ${body.issues.length}`);
-  return '20 issues';
+  if (body.issues.length < 20) throw new Error(`Expected at least 20 issues, got ${body.issues.length}`);
+  return `${body.issues.length} issues`;
 });
 
 await record('Wallet API rejects missing session', async () => {
@@ -64,6 +64,14 @@ await record('Payment create is disabled', async () => {
 
 await record('Moderation API rejects missing admin token', async () => {
   const { response } = await fetchJson('/api/moderation/reports');
+  if (response.status !== 401) throw new Error(`Expected 401, got ${response.status}`);
+  return '401';
+});
+
+await record('Issue refresh API rejects missing admin token', async () => {
+  const { response } = await fetchJson('/api/admin/refresh-issues', {
+    method: 'POST',
+  });
   if (response.status !== 401) throw new Error(`Expected 401, got ${response.status}`);
   return '401';
 });

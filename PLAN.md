@@ -9,7 +9,8 @@ Build GlobalPulse as a mobile-first global issue reaction dashboard where anonym
 This repository now contains the frontend MVP shell plus the first production API layer:
 
 - Mobile-first dark feed UI
-- 20 neutral dummy issues across required categories
+- 20 neutral seed issues across required categories
+- Token-protected live issue refresh from Wikimedia Current Events, Hacker News, and GDELT
 - Search, category filters, and required sort tabs
 - Like/dislike optimistic UI with D1 API support and localStorage fallback
 - Issue detail modal with sources, reaction split, free comments, and moderation notes
@@ -25,13 +26,14 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Local full-stack smoke test runs Pages Functions with local D1 through Wrangler and verifies OTP login, reactions, free comments, reporting, moderation, logout, and disabled payment endpoints
 - Production deploy gate blocks deployment when D1, session secret, moderation admin token, public origin, launch review acknowledgement, or verified email auth settings are missing
 - Production D1 migration script shares the local migration list and requires an explicit confirmation value before applying remote migrations
-- Production URL verification script checks the public app, D1 issue seed count, protected API behavior, disabled payment API behavior, moderation protection, and optional Resend OTP delivery
+- Production URL verification script checks the public app, D1 issue count, protected API behavior, disabled payment API behavior, moderation and live-refresh protection, and optional Resend OTP delivery
 
 ## Milestones
 
 1. Data model
    - Done: Add D1 schema for issues, sources, sessions, reactions, users, wallets, comments, and reports.
    - Done: Seed dummy issues.
+   - Done: Add operator-triggered public data refresh for Wikimedia Current Events, Hacker News, and GDELT.
    - Done: Disable legacy payment plans and support zero-cost comments.
 
 2. UI
@@ -101,4 +103,5 @@ Do not claim GlobalPulse is production-ready until the D1 binding, session secre
 - D1 migration execution in production
 - Production deployment URL verification
 - Privacy/security/moderation/content policy review
+- Run operator live issue refresh after production secrets and D1 are confirmed
 - Set `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` after completing the operator launch review

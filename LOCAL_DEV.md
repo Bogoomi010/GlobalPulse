@@ -22,6 +22,12 @@ Open `http://127.0.0.1:8788`.
 
 Local Pages dev also sets `ALLOW_DEMO_LOGIN=true` so `/api/auth/login` can issue a test session without sending email. The API smoke test uses `AUTH_PROVIDER=resend` plus `AUTH_EMAIL_DELIVERY=log` to verify the OTP endpoints without sending real email. Production must use Resend delivery and must not enable local log delivery.
 
+The live issue refresh endpoint is operator-only. In local Pages dev, run this when you want to pull public issues from Wikimedia Current Events, Hacker News, and GDELT into local D1:
+
+```bash
+curl -X POST -H "Authorization: Bearer local-dev-moderation-token" http://127.0.0.1:8788/api/admin/refresh-issues
+```
+
 ## API Smoke Test
 
 ```bash
@@ -43,6 +49,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Comment reporting keeps the comment visible with reported status
 - Duplicate reports from the same anonymous session do not create extra report rows
 - Moderation reports require an admin token and can hide or restore a reported comment
+- The live issue refresh endpoint rejects requests without the admin token
 - The frontend ops screen accepts an operator-provided moderation token for queue review
 - The author can delete their own comment
 
@@ -72,4 +79,4 @@ APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
 PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production
 ```
 
-The verifier checks the public app shell, seeded issue API count, protected API behavior, disabled payment API behavior, moderation token protection, and optional Resend OTP delivery.
+The verifier checks the public app shell, D1 issue API count, protected API behavior, disabled payment API behavior, moderation and issue-refresh token protection, and optional Resend OTP delivery.

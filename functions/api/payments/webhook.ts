@@ -1,5 +1,5 @@
 import { Env, badRequest, createId, json, recordTopupTransaction } from '../../_shared';
-import { ProviderPayment, configuredPaymentProvider } from '../../_payments';
+import { ProviderPayment, configuredPaymentProvider, getPaymentProvider } from '../../_payments';
 
 type TossWebhookPayload = {
   eventType?: string;
@@ -43,7 +43,9 @@ type PaymentRow = {
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
-  const provider = configuredPaymentProvider(env);
+  const provider = request.headers.get('stripe-signature')
+    ? getPaymentProvider('stripe')
+    : configuredPaymentProvider(env);
   if (!provider) return badRequest('Payment provider is not supported', 400);
   if (!provider.isReady(env)) return badRequest('Payment provider is not configured', 503);
 

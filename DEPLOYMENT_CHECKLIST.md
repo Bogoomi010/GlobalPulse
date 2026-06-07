@@ -33,6 +33,7 @@
 - Configure `SESSION_TOKEN_SECRET` with a high-entropy production value.
 - Configure `MODERATION_ADMIN_TOKEN` with a high-entropy production value.
 - Configure `APP_PUBLIC_ORIGIN` to the production HTTPS origin.
+- Confirm `/api/admin/status` reports that `APP_PUBLIC_ORIGIN` uses HTTPS and matches the deployed request origin.
 - Set `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` only after the launch review is complete.
 
 ## Required Deployment Variables

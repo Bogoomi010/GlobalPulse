@@ -22,6 +22,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
   const unauthorized = requireAdmin(request, env);
   if (unauthorized) return unauthorized;
 
+  const requestOrigin = new URL(request.url).origin;
+  const configuredOrigin = normalizeOrigin(env.APP_PUBLIC_ORIGIN);
   const issueCount = await env.DB.prepare('SELECT COUNT(*) AS count FROM issues').first<{ count: number }>();
   const tableResult = await env.DB.prepare(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
@@ -41,6 +43,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
     },
     config: {
       appPublicOriginConfigured: Boolean(env.APP_PUBLIC_ORIGIN),
+      appPublicOriginHttps: configuredOrigin ? configuredOrigin.startsWith('https://') : false,
+      appPublicOriginMatchesRequest: Boolean(configuredOrigin && configuredOrigin === requestOrigin),
       demoLoginEnabled: env.ALLOW_DEMO_LOGIN === 'true',
       launchReviewAcknowledged: env.LAUNCH_REVIEW_ACK === 'GLOBALPULSE_LAUNCH_REVIEW_COMPLETE',
       moderationAdminTokenConfigured: Boolean(env.MODERATION_ADMIN_TOKEN),
@@ -59,3 +63,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
     status: 'ok',
   });
 };
+
+function normalizeOrigin(value?: string): string {
+  if (!value) return '';
+  try {
+    return new URL(value).origin;
+  } catch {
+    return '';
+  }
+}

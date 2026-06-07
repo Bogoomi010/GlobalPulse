@@ -112,6 +112,10 @@ if (adminToken) {
     if (!body.config?.sessionSecretConfigured) throw new Error('SESSION_TOKEN_SECRET is not configured');
     if (!body.config?.moderationAdminTokenConfigured) throw new Error('MODERATION_ADMIN_TOKEN is not configured');
     if (!body.config?.appPublicOriginConfigured) throw new Error('APP_PUBLIC_ORIGIN is not configured');
+    if (!body.config?.appPublicOriginHttps) throw new Error('APP_PUBLIC_ORIGIN must use https');
+    if (!body.config?.appPublicOriginMatchesRequest) {
+      throw new Error('APP_PUBLIC_ORIGIN must match the deployed request origin');
+    }
     if (body.config?.demoLoginEnabled) throw new Error('ALLOW_DEMO_LOGIN must not be enabled in production');
     if (body.auth?.provider !== 'resend') throw new Error(`AUTH_PROVIDER must be resend, got ${body.auth?.provider}`);
     if (!body.auth?.resendConfigured) throw new Error('RESEND_API_KEY is not configured');

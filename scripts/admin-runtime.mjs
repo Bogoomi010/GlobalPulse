@@ -174,6 +174,8 @@ function printStatus(status) {
     `- Email log delivery enabled: ${formatBoolean(status.auth?.logDeliveryEnabled)}`,
     `- Session secret configured: ${formatBoolean(status.config?.sessionSecretConfigured)}`,
     `- App public origin configured: ${formatBoolean(status.config?.appPublicOriginConfigured)}`,
+    `- App public origin HTTPS: ${formatBoolean(status.config?.appPublicOriginHttps)}`,
+    `- App public origin matches request: ${formatBoolean(status.config?.appPublicOriginMatchesRequest)}`,
     `- Demo login enabled: ${formatBoolean(status.config?.demoLoginEnabled)}`,
     `- Active payment plans: ${status.payments?.activePlanCount ?? 'unknown'}`,
     `- Launch review acknowledged: ${formatBoolean(status.config?.launchReviewAcknowledged)}`,
@@ -207,6 +209,12 @@ function readinessFailures(status) {
   }
   if (!status?.config?.appPublicOriginConfigured) {
     failures.push('APP_PUBLIC_ORIGIN is not configured.');
+  }
+  if (!status?.config?.appPublicOriginHttps) {
+    failures.push('APP_PUBLIC_ORIGIN must use https.');
+  }
+  if (!status?.config?.appPublicOriginMatchesRequest) {
+    failures.push('APP_PUBLIC_ORIGIN must match the deployed request origin.');
   }
   if (status?.config?.demoLoginEnabled) {
     failures.push('ALLOW_DEMO_LOGIN must not be enabled in production.');

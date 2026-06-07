@@ -108,6 +108,8 @@ type RuntimeStatus = {
   };
   config: {
     appPublicOriginConfigured: boolean;
+    appPublicOriginHttps: boolean;
+    appPublicOriginMatchesRequest: boolean;
     demoLoginEnabled: boolean;
     launchReviewAcknowledged: boolean;
     moderationAdminTokenConfigured: boolean;
@@ -1633,6 +1635,8 @@ function OpsRuntimeStatus({
     runtimeStatus?.config.sessionSecretConfigured &&
       runtimeStatus.config.moderationAdminTokenConfigured &&
       runtimeStatus.config.appPublicOriginConfigured &&
+      runtimeStatus.config.appPublicOriginHttps &&
+      runtimeStatus.config.appPublicOriginMatchesRequest &&
       !runtimeStatus.config.demoLoginEnabled,
   );
   const d1Ready = Boolean(runtimeStatus && runtimeStatus.d1.issueCount >= 20);
@@ -1654,6 +1658,7 @@ function OpsRuntimeStatus({
           <OpsStatusLine label={`D1 issues ${runtimeStatus.d1.issueCount}`} ok={d1Ready} />
           <OpsStatusLine label={`D1 schema tables ${runtimeStatus.d1.requiredTableCount}`} ok={d1SchemaReady} />
           <OpsStatusLine label="Resend email login" ok={emailReady} />
+          <OpsStatusLine label="Public origin matches deploy" ok={Boolean(runtimeStatus.config.appPublicOriginMatchesRequest)} />
           <OpsStatusLine label="Runtime secrets" ok={runtimeReady} />
           <OpsStatusLine label="Payments disabled" ok={paymentsDisabled} />
           <OpsStatusLine label="Launch review ACK" ok={launchReady} />

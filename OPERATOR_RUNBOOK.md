@@ -64,6 +64,14 @@ Production must not include:
 
 After changing Cloudflare variables or secrets, trigger or wait for a fresh production deployment before running protected verification.
 
+If you have a Cloudflare API token with Pages Read access, verify the variable names without printing secret values:
+
+```bash
+CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... yarn audit:cloudflare-secrets
+```
+
+The audit reads the Cloudflare Pages project configuration and fails if any Stripe, Toss, or `PAYMENT_PROVIDER` variable names remain.
+
 ## Phase 2: Resend Email Readiness
 
 In Resend:
@@ -124,6 +132,7 @@ Expected evidence:
 - Active payment plans are `0`.
 - Legacy payment secrets are `none`.
 - Launch review is not acknowledged until the operator completes `LAUNCH_REVIEW.md`.
+- `yarn audit:cloudflare-secrets` passes if a Cloudflare API token is available for read-only project inspection.
 
 ## Phase 5: Live Issue Refresh
 

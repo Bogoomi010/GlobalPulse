@@ -39,6 +39,7 @@ Use `OPERATOR_RUNBOOK.md` for the ordered Cloudflare, Resend, verification, and 
 - Confirm `/api/admin/status` reports that `APP_PUBLIC_ORIGIN` uses HTTPS and matches the deployed request origin.
 - Set `LAUNCH_REVIEW_ACK=GLOBALPULSE_LAUNCH_REVIEW_COMPLETE` only after the launch review is complete.
 - Remove old payment provider variables and secrets: `PAYMENT_PROVIDER`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`, and `VITE_TOSS_CLIENT_KEY`.
+- Optional read-only check: `CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... yarn audit:cloudflare-secrets` fails if the Cloudflare Pages project still contains old payment variable names.
 - Confirm `/api/admin/status` reports `Legacy payment secrets 0` through the Ops screen or `yarn admin:status`.
 
 ## Required Deployment Variables
@@ -66,6 +67,7 @@ GlobalPulse does not use Stripe, Toss, or other payment provider secrets. If old
 - `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn launch:review` adds protected runtime readiness evidence without exposing secrets.
 - `APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production` passes.
 - `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:status` reports runtime readiness without exposing secrets.
+- `CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... yarn audit:cloudflare-secrets` passes when read-only Cloudflare API access is available.
 - `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:ready` passes after runtime settings and launch review are complete.
 - `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:refresh-issues` refreshes public issues when needed.
 - `PRODUCTION_ADMIN_TOKEN=... PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:test-email` requests a production OTP.

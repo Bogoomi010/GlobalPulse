@@ -1,6 +1,6 @@
 # GlobalPulse Goal Status
 
-Generated: 2026-06-07T06:35:12Z
+Generated: 2026-06-07T06:38:12Z
 
 ## Active Scope
 
@@ -70,7 +70,7 @@ yarn goal:complete
 
 1. Remove legacy payment variables/secrets from Cloudflare Pages:
    `PAYMENT_PROVIDER`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`, and `VITE_TOSS_CLIENT_KEY`.
-   Latest read-only Cloudflare dashboard observation at 2026-06-07T06:16:18Z still showed all 7 legacy payment variable names.
+   Latest read-only Cloudflare dashboard observation at 2026-06-07T06:38:12Z still showed all 7 legacy payment variable names. Deleting them requires action-time operator confirmation because it changes Cloudflare deployment settings.
 2. Wait for a fresh Cloudflare production deployment after variable cleanup.
 3. Run protected runtime evidence with the production admin token:
    `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review`.

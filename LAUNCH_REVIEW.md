@@ -48,7 +48,7 @@ Complete the Pre-ACK items before setting `LAUNCH_REVIEW_ACK`. Complete the Post
 ### Current Evidence Snapshot
 
 ```text
-Timestamp: 2026-06-07T06:35:12Z
+Timestamp: 2026-06-07T06:38:12Z
 Public launch review: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md at 2026-06-07T06:34:54Z
 Public production verification: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production, including deployed public-copy audit, deployed policy-copy audit, public response secret-field audit, source links, neutral issue wording, anonymous reaction like/switch/cancel baseline restoration, and unauthenticated comment write rejection
 Public copy audit: PASS via yarn audit:public-copy and deployed HTML/JS/CSS verification
@@ -56,7 +56,7 @@ Public browser smoke: PASS for feed render, search, category filter, sort tabs, 
 Production responsive smoke: PASS for feed, issue details, login, comments, policy, and ops at 390x844 mobile and 1440x900 desktop with no horizontal overflow
 Local full-stack smoke: PASS via yarn test:api at 2026-06-07T06:35:12Z, including logout revocation, duplicate report idempotency, open/reviewed/all moderation queues, hide/restore/dismiss actions, and hidden/restored/dismissed/deleted comment visibility rules
 Technical review evidence: PASS for email-login comment copy, anonymous reaction token handling documentation, comment/report retention baseline, moderation queue/action behavior, and public content neutrality checks
-Last Cloudflare dashboard observation: BLOCKED at 2026-06-07T06:16:18Z; required variable names are visible, but legacy payment variable names are still present: PAYMENT_PROVIDER, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, TOSS_CLIENT_KEY, TOSS_SECRET_KEY, TOSS_WEBHOOK_SECRET, VITE_TOSS_CLIENT_KEY
+Last Cloudflare dashboard observation: BLOCKED at 2026-06-07T06:38:12Z; required variable names are visible, but legacy payment variable names are still present: PAYMENT_PROVIDER, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, TOSS_CLIENT_KEY, TOSS_SECRET_KEY, TOSS_WEBHOOK_SECRET, VITE_TOSS_CLIENT_KEY. Deleting Cloudflare variables is an external side effect and still requires action-time operator confirmation.
 Protected runtime evidence: PENDING; requires production admin token
 Production email OTP evidence: PENDING; requires operator mailbox OTP flow
 Launch ACK evidence: PENDING; set only after all review sections are complete

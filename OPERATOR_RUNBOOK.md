@@ -89,6 +89,7 @@ CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... CONFIRM_CLOUDFLARE_LEGACY_SEC
 ```
 
 The cleanup command deletes only the forbidden legacy payment variable names by setting them to `null`; it does not print or modify required production secret values.
+Only run the apply command after the operator gives action-time confirmation to delete the listed Cloudflare variables.
 
 ## Phase 2: Resend Email Readiness
 

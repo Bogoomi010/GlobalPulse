@@ -20,10 +20,10 @@ Complete the Pre-ACK items before setting `LAUNCH_REVIEW_ACK`. Complete the Post
 
 ### Pre-ACK Evidence
 
-- [ ] Production URL opens publicly at `https://globalpulse-pages.pages.dev/`.
-- [ ] `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review` produces a non-secret launch review report.
-- [ ] Optional: `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` saves a local non-secret report.
-- [ ] `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production` passes.
+- [x] Production URL opens publicly at `https://globalpulse-pages.pages.dev/`.
+- [x] `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review` produces a non-secret launch review report.
+- [x] Optional: `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` saves a local non-secret report.
+- [x] `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production` passes.
 - [ ] `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn admin:status` reports D1 schema ready, Resend configured, HTTPS public origin match, demo login disabled, active payment plans `0`, legacy payment secrets `none`, and launch review status not yet acknowledged.
 - [ ] `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review` includes protected runtime evidence without printing the admin token.
 - [ ] `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn admin:refresh-issues` refreshes public issues or reports no new items without exposing the token.
@@ -32,6 +32,19 @@ Complete the Pre-ACK items before setting `LAUNCH_REVIEW_ACK`. Complete the Post
 - [ ] Ops screen accepts the admin token and shows `Legacy payment secrets 0`.
 - [ ] Cloudflare Pages Variables and Secrets no longer contain Stripe, Toss, or `PAYMENT_PROVIDER` entries.
 - [ ] Mobile and desktop layouts are usable for feed, issue details, login, comments, policy, and ops.
+
+### Current Evidence Snapshot
+
+```text
+Timestamp: 2026-06-07T05:12:14Z
+Public launch review: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md
+Public production verification: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production
+Public browser smoke: PASS for feed render, search, category filter, sort tabs, detail modal, anonymous reaction toggle, mobile 390px layout, and desktop 1440px layout
+Cloudflare dashboard observation: BLOCKED; legacy payment secret names still present: PAYMENT_PROVIDER, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, TOSS_CLIENT_KEY, TOSS_SECRET_KEY, TOSS_WEBHOOK_SECRET, VITE_TOSS_CLIENT_KEY
+Protected runtime evidence: PENDING; requires production admin token
+Production email OTP evidence: PENDING; requires operator mailbox OTP flow
+Launch ACK evidence: PENDING; set only after all review sections are complete
+```
 
 ### Post-ACK Verification
 

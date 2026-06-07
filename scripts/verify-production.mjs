@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { URL } from 'node:url';
+import { forbiddenPublicPhrases } from './public-copy-rules.mjs';
 
 const allowHttp = process.argv.includes('--allow-http');
 const target = process.argv.find((arg) => arg.startsWith('http')) || process.env.APP_PUBLIC_ORIGIN || '';
@@ -37,6 +38,8 @@ await record('Public app loads', async () => {
   if (!response.text.includes('GlobalPulse')) throw new Error('Response does not include GlobalPulse');
   return `${response.status} ${response.contentType}`;
 });
+
+await record('Public copy avoids payment wording', async () => auditDeployedPublicCopy());
 
 await record('/api/issues returns D1 issues', async () => {
   const { body, response } = await fetchJson('/api/issues');
@@ -252,6 +255,32 @@ async function expectPaymentGone(pathname, body) {
   });
   if (response.status !== 410) throw new Error(`Expected 410, got ${response.status}`);
   return '410';
+}
+
+async function auditDeployedPublicCopy() {
+  const rootResponse = await fetchText('/');
+  if (!rootResponse.ok) throw new Error(`Expected 200, got ${rootResponse.status}`);
+
+  const files = [{ path: '/', text: rootResponse.text }];
+  for (const assetPath of extractAssetPaths(rootResponse.text)) {
+    const assetResponse = await fetchText(assetPath);
+    if (!assetResponse.ok) throw new Error(`Expected 200 for ${assetPath}, got ${assetResponse.status}`);
+    files.push({ path: assetPath, text: assetResponse.text });
+  }
+
+  for (const file of files) {
+    for (const phrase of forbiddenPublicPhrases) {
+      if (file.text.includes(phrase)) {
+        throw new Error(`${file.path} contains removed payment wording: "${phrase}"`);
+      }
+    }
+  }
+
+  return `${files.length} deployment files checked`;
+}
+
+function extractAssetPaths(html) {
+  return Array.from(html.matchAll(/\b(?:src|href)="([^"]+\.(?:js|css))"/g), (match) => match[1]);
 }
 
 async function runAnonymousReactionSmoke() {

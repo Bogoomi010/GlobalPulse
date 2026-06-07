@@ -1,22 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { forbiddenPublicPhrases } from './public-copy-rules.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const publicUiFiles = ['src/App.tsx', ...builtAssetFiles()];
-
-const forbiddenPublicPhrases = [
-  '결제 기능은 제거되었습니다',
-  '별도 충전',
-  'Operations and refund policy',
-  'Payments are disabled',
-  'wallet top-ups',
-  'paid comments',
-  'checkout',
-  'Stripe',
-  'Toss',
-  'refunds for paid balances',
-];
 
 const findings = [];
 

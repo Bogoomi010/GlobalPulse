@@ -1,6 +1,6 @@
 # GlobalPulse Goal Status
 
-Generated: 2026-06-07T06:05:33Z
+Generated: 2026-06-07T06:11:24Z
 
 ## Active Scope
 
@@ -20,15 +20,16 @@ Do not describe the service as production-ready until the remaining operator-con
 
 ## Verified Evidence
 
-- `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` passed public checks on 2026-06-07T06:05:33Z.
+- `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` passed public checks on 2026-06-07T06:11:24Z.
 - `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production` passed public production verification on the latest checked state.
 - Public app loads at the production URL.
+- Public production verification fetches deployed HTML, JS, and CSS assets and confirms removed payment-provider, checkout, top-up, and paid-comment wording is absent.
 - `/api/issues` returns 20 D1-backed issues.
 - Public issue data includes named source links with HTTP(S) URLs for every returned issue.
 - Public issue title, summary, and detail text avoid verdict-like fact/truth claims.
 - Public anonymous reaction smoke verifies like, switch to dislike, cancel, baseline count restoration, and `/api/issues` aggregate persistence.
 - Public comment list loads for an issue, while comment creation rejects requests without a signed-in session.
-- `yarn audit:public-copy` confirms public UI copy does not use removed payment-provider, checkout, top-up, or paid-comment wording.
+- `yarn audit:public-copy` confirms local public UI copy does not use removed payment-provider, checkout, top-up, or paid-comment wording.
 - Protected wallet, moderation, issue-refresh, and admin-status APIs reject unauthenticated requests.
 - `/api/payments/create`, `/api/payments/confirm`, `/api/payments/fail`, and `/api/payments/webhook` return `410 Gone`.
 - Mobile and desktop layouts have recorded evidence in `LAUNCH_REVIEW.md`.

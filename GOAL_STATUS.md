@@ -1,6 +1,6 @@
 # GlobalPulse Goal Status
 
-Generated: 2026-06-07T05:48:49Z
+Generated: 2026-06-07T05:53:15Z
 
 ## Active Scope
 
@@ -20,7 +20,7 @@ Do not describe the service as production-ready until the remaining operator-con
 
 ## Verified Evidence
 
-- `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` passed public checks on 2026-06-07T05:48:49Z.
+- `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` passed public checks on 2026-06-07T05:53:15Z.
 - `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production` passed public production verification on the latest checked state.
 - Public app loads at the production URL.
 - `/api/issues` returns 20 D1-backed issues.
@@ -44,8 +44,21 @@ Do not describe the service as production-ready until the remaining operator-con
 - Token-protected runtime status and readiness checks.
 - Disabled payment endpoints and migration-disabled payment plans.
 - Operator runbook, deployment checklist, launch review checklist, public launch report, production verifier, and Cloudflare legacy secret audit/cleanup scripts.
+- `yarn goal:status` summarizes incomplete launch review gates without requiring or printing secrets.
 
 ## Remaining Launch Gates
+
+Run this local non-secret audit at any time:
+
+```bash
+yarn goal:status
+```
+
+Run this only when the operator believes every launch review checkbox is complete:
+
+```bash
+yarn goal:complete
+```
 
 1. Remove legacy payment variables/secrets from Cloudflare Pages:
    `PAYMENT_PROVIDER`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`, and `VITE_TOSS_CLIENT_KEY`.

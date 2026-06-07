@@ -2,6 +2,7 @@
 
 Use `OPERATOR_RUNBOOK.md` for the ordered Cloudflare, Resend, verification, and launch acknowledgement procedure.
 Use `GOAL_STATUS.md` for the current modified launch scope, verified public evidence, and remaining operator gates.
+Use `yarn goal:status` to print unfinished launch checklist items without exposing secrets.
 
 ## Build
 
@@ -15,6 +16,7 @@ Use `GOAL_STATUS.md` for the current modified launch scope, verified public evid
 - With the admin token available, run `PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production`.
 - Verify mobile and desktop layouts.
 - Complete `LAUNCH_REVIEW.md` before calling the service production-ready.
+- Run `yarn goal:complete` before calling the active goal complete.
 
 ## D1
 

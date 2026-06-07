@@ -5,6 +5,7 @@ Use this runbook to finish the production operator steps that cannot be complete
 Do not paste API keys, admin tokens, OTP codes, session tokens, or secret values into issues, commits, docs, screenshots, or chat. Record only pass/fail results, timestamps, command names, and non-secret observations.
 
 For the current modified launch scope, verified public evidence, and remaining operator gates, see `GOAL_STATUS.md`.
+Run `yarn goal:status` for a non-secret summary of unfinished launch checklist items.
 
 ## Production Target
 
@@ -201,6 +202,7 @@ Then wait for a fresh production deployment and run:
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn admin:ready
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production
 PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review
+yarn goal:complete
 ```
 
 Optionally save the final report:
@@ -210,6 +212,7 @@ PRODUCTION_ADMIN_TOKEN=... APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev
 ```
 
 All three commands must pass before claiming production readiness.
+`yarn goal:complete` must also pass, confirming that every launch review checklist item has been closed.
 
 ## Final Go/No-Go Evidence
 

@@ -17,6 +17,8 @@
     "check:deploy": "node scripts/check-production-readiness.mjs",
     "verify:production": "node scripts/verify-production.mjs",
     "launch:review": "node scripts/launch-review-report.mjs",
+    "goal:status": "node scripts/goal-completion-audit.mjs",
+    "goal:complete": "node scripts/goal-completion-audit.mjs --require-complete",
     "audit:cloudflare-secrets": "node scripts/audit-cloudflare-pages-secrets.mjs",
     "cleanup:cloudflare-secrets": "node scripts/cleanup-cloudflare-pages-secrets.mjs",
     "admin:status": "node scripts/admin-runtime.mjs status",

@@ -19,7 +19,7 @@
 - Apply all migrations with `CONFIRM_PRODUCTION_MIGRATIONS=globalpulse-production yarn db:migrate:production`.
 - Confirm migration `0009_remove_payment_system.sql` has disabled payment plans.
 - Seed production dummy issues and issue sources.
-- Use `/api/admin/refresh-issues` with `MODERATION_ADMIN_TOKEN` to add public live issues after deployment when needed.
+- Use the browser `Ops` screen or `/api/admin/refresh-issues` with `MODERATION_ADMIN_TOKEN` to add public live issues after deployment when needed.
 - Bind the D1 database to the server runtime.
 
 ## Runtime Configuration
@@ -69,7 +69,7 @@ GlobalPulse does not use Stripe, Toss, or other payment provider secrets. If old
 - Duplicate comment reports from the same anonymous session are idempotent.
 - `/api/moderation/reports` rejects missing admin tokens, lists reported comments, and can hide or restore a reviewed comment.
 - `/api/admin/refresh-issues` rejects missing admin tokens before any external source fetch runs.
-- The browser ops screen can connect with `MODERATION_ADMIN_TOKEN` and perform the same hide/restore review flow.
+- The browser ops screen can connect with `MODERATION_ADMIN_TOKEN`, perform the same hide/restore review flow, and trigger public issue refresh.
 - Mobile and desktop layouts remain usable.
 - `LAUNCH_REVIEW_ACK` is set only after privacy, security, moderation, and operations review is complete.
 

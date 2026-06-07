@@ -22,7 +22,7 @@ Open `http://127.0.0.1:8788`.
 
 Local Pages dev also sets `ALLOW_DEMO_LOGIN=true` so `/api/auth/login` can issue a test session without sending email. The API smoke test uses `AUTH_PROVIDER=resend` plus `AUTH_EMAIL_DELIVERY=log` to verify the OTP endpoints without sending real email. Production must use Resend delivery and must not enable local log delivery.
 
-The live issue refresh endpoint is operator-only. In local Pages dev, run this when you want to pull public issues from Wikimedia Current Events, Hacker News, and GDELT into local D1:
+The live issue refresh action is operator-only. In local Pages dev, open the `Ops` screen with `local-dev-moderation-token` and click `Refresh public issues`, or run this command when you want to pull public issues from Wikimedia Current Events, Hacker News, and GDELT into local D1:
 
 ```bash
 curl -X POST -H "Authorization: Bearer local-dev-moderation-token" http://127.0.0.1:8788/api/admin/refresh-issues
@@ -50,6 +50,7 @@ The smoke test builds the app, applies D1 migrations to an isolated Wrangler sta
 - Duplicate reports from the same anonymous session do not create extra report rows
 - Moderation reports require an admin token and can hide or restore a reported comment
 - The live issue refresh endpoint rejects requests without the admin token
+- The ops screen can trigger live issue refresh after the operator enters the admin token
 - The frontend ops screen accepts an operator-provided moderation token for queue review
 - The author can delete their own comment
 

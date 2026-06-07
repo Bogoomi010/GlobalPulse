@@ -88,6 +88,17 @@ type ModerationReport = {
   lastReportedAt: string;
 };
 
+type IssueRefreshResult = {
+  attempted: number;
+  upserted: number;
+  sources: {
+    gdelt: number;
+    hackerNews: number;
+    wikimedia: number;
+  };
+  status: 'refreshed';
+};
+
 type AuthStep = 'details' | 'code';
 
 type PendingAuth = {
@@ -519,6 +530,7 @@ export default function App() {
   const [moderationReports, setModerationReports] = useState<ModerationReport[]>([]);
   const [moderationBusy, setModerationBusy] = useState(false);
   const [moderationMessage, setModerationMessage] = useState('');
+  const [issueRefreshBusy, setIssueRefreshBusy] = useState(false);
 
   const activeIssue = issues.find((issue) => issue.id === activeIssueId) ?? null;
   const activeSessionToken = user?.sessionToken;
@@ -952,6 +964,32 @@ export default function App() {
     });
   };
 
+  const handleIssueRefresh = () => {
+    if (!moderationToken) return;
+    setIssueRefreshBusy(true);
+    setModerationMessage('');
+    void requestJson<IssueRefreshResult>('/api/admin/refresh-issues', {
+      method: 'POST',
+      headers: moderationHeaders(moderationToken),
+    }).then((data) => {
+      if (!data) {
+        setIssueRefreshBusy(false);
+        setModerationMessage('공개 이슈 갱신에 실패했습니다. 운영 토큰과 배포 설정을 확인하세요.');
+        return;
+      }
+      setApiOnline(true);
+      void requestJson<{ issues: Issue[] }>('/api/issues').then((issueData) => {
+        if (issueData?.issues?.length) {
+          persistIssues(issueData.issues);
+        }
+        setIssueRefreshBusy(false);
+        setModerationMessage(
+          `공개 이슈 갱신 완료: ${data.upserted}개 저장, Wikimedia ${data.sources.wikimedia}개, Hacker News ${data.sources.hackerNews}개, GDELT ${data.sources.gdelt}개.`,
+        );
+      });
+    });
+  };
+
   const visibleComments = comments.filter(
     (comment) =>
       comment.issueId === activeIssueId && comment.status !== 'deleted' && comment.status !== 'hidden',
@@ -1086,9 +1124,11 @@ export default function App() {
         {view === 'moderation' ? (
           <ModerationView
             busy={moderationBusy}
+            issueRefreshBusy={issueRefreshBusy}
             message={moderationMessage}
             onAction={handleModerationAction}
             onClearToken={clearModerationToken}
+            onIssueRefresh={handleIssueRefresh}
             onStatusChange={setModerationStatus}
             onTokenSubmit={handleModerationToken}
             reports={moderationReports}
@@ -1413,20 +1453,24 @@ function ModerationView({
   reports,
   status,
   busy,
+  issueRefreshBusy,
   message,
   onTokenSubmit,
   onClearToken,
   onStatusChange,
+  onIssueRefresh,
   onAction,
 }: {
   tokenConfigured: boolean;
   reports: ModerationReport[];
   status: ModerationStatus;
   busy: boolean;
+  issueRefreshBusy: boolean;
   message: string;
   onTokenSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onClearToken: () => void;
   onStatusChange: (status: ModerationStatus) => void;
+  onIssueRefresh: () => void;
   onAction: (action: ModerationAction, report: ModerationReport) => void;
 }) {
   const openCount = reports.reduce((sum, report) => sum + report.openReportCount, 0);
@@ -1463,6 +1507,21 @@ function ModerationView({
             </button>
           </form>
         )}
+        <div className="mt-5 border-t border-white/10 pt-5">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Issue sources</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">
+            Wikimedia Current Events, Hacker News, GDELT 공개 데이터를 D1 이슈 목록에 갱신합니다.
+          </p>
+          <button
+            className="primary-button mt-4 w-full"
+            disabled={!tokenConfigured || issueRefreshBusy}
+            onClick={onIssueRefresh}
+            type="button"
+          >
+            <RotateCcw className={`h-4 w-4 ${issueRefreshBusy ? 'animate-spin' : ''}`} />
+            {issueRefreshBusy ? 'Refreshing issues' : 'Refresh public issues'}
+          </button>
+        </div>
         {message ? (
           <p className="mt-4 rounded-2xl border border-cyan-300/30 bg-cyan-300/10 p-3 text-sm leading-6 text-cyan-100">
             {message}

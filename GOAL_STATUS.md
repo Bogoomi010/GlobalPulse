@@ -1,6 +1,6 @@
 # GlobalPulse Goal Status
 
-Generated: 2026-06-07T05:44:21Z
+Generated: 2026-06-07T05:48:49Z
 
 ## Active Scope
 
@@ -20,11 +20,11 @@ Do not describe the service as production-ready until the remaining operator-con
 
 ## Verified Evidence
 
-- `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` passed public checks on 2026-06-07T05:44:21Z.
+- `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` passed public checks on 2026-06-07T05:48:49Z.
 - `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production` passed public production verification on the latest checked state.
 - Public app loads at the production URL.
 - `/api/issues` returns 20 D1-backed issues.
-- Public anonymous reaction smoke verifies like, switch to dislike, cancel, and `/api/issues` aggregate persistence.
+- Public anonymous reaction smoke verifies like, switch to dislike, cancel, baseline count restoration, and `/api/issues` aggregate persistence.
 - Public comment list loads for an issue, while comment creation rejects requests without a signed-in session.
 - Protected wallet, moderation, issue-refresh, and admin-status APIs reject unauthenticated requests.
 - `/api/payments/create`, `/api/payments/confirm`, `/api/payments/fail`, and `/api/payments/webhook` return `410 Gone`.

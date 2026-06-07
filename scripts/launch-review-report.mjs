@@ -19,7 +19,7 @@ if (!allowHttp && origin.protocol !== 'https:') {
 
 const checks = [];
 let adminStatus = null;
-let firstIssueIdPromise;
+let smokeIssueIdPromise;
 
 await record('Public app loads', async () => {
   const response = await fetchText('/');
@@ -45,7 +45,7 @@ await record('Wallet API rejects missing session', async () => {
 });
 
 await record('Comment list is public', async () => {
-  const issueId = await getFirstIssueId();
+  const issueId = await getSmokeIssueId();
   const { body, response } = await fetchJson(`/api/comments?issueId=${encodeURIComponent(issueId)}`);
   if (!response.ok) throw new Error(`Expected 200, got ${response.status}`);
   if (!Array.isArray(body?.comments)) throw new Error('comments must be an array');
@@ -53,7 +53,7 @@ await record('Comment list is public', async () => {
 });
 
 await record('Comment API rejects missing session', async () => {
-  const issueId = await getFirstIssueId();
+  const issueId = await getSmokeIssueId();
   const { response } = await fetchJson('/api/comments', {
     body: JSON.stringify({
       content: 'Launch review should not write without a session',
@@ -351,7 +351,10 @@ async function expectPaymentGone(pathname, body) {
 }
 
 async function runAnonymousReactionSmoke() {
-  const issueId = await getFirstIssueId();
+  const issueId = await getSmokeIssueId();
+  const baseline = await getIssueSnapshot(issueId);
+  const baselineLikes = Number(baseline.likes);
+  const baselineDislikes = Number(baseline.dislikes);
   const anonymousToken = `launch_review_${randomUUID()}`;
   let currentReaction = null;
 
@@ -368,16 +371,19 @@ async function runAnonymousReactionSmoke() {
   try {
     const like = await postReaction('like');
     if (like?.currentReaction !== 'like') throw new Error(`Expected currentReaction like, got ${like?.currentReaction}`);
+    expectReactionCounts(like, baselineLikes + 1, baselineDislikes, 'like');
     await expectIssueAggregate(issueId, like.likes, like.dislikes, 'like');
 
     const dislike = await postReaction('dislike');
     if (dislike?.currentReaction !== 'dislike') {
       throw new Error(`Expected currentReaction dislike, got ${dislike?.currentReaction}`);
     }
+    expectReactionCounts(dislike, baselineLikes, baselineDislikes + 1, 'switch to dislike');
     await expectIssueAggregate(issueId, dislike.likes, dislike.dislikes, 'switch to dislike');
 
     const cancel = await postReaction('dislike');
     if (cancel?.currentReaction !== null) throw new Error(`Expected cancelled reaction, got ${cancel?.currentReaction}`);
+    expectReactionCounts(cancel, baselineLikes, baselineDislikes, 'cancel');
     await expectIssueAggregate(issueId, cancel.likes, cancel.dislikes, 'cancel');
 
     return `${issueId} like, switch, cancel`;
@@ -396,6 +402,15 @@ async function runAnonymousReactionSmoke() {
   }
 }
 
+function expectReactionCounts(body, expectedLikes, expectedDislikes, phase) {
+  if (Number(body?.likes) !== expectedLikes) {
+    throw new Error(`Expected ${expectedLikes} likes after ${phase}, got ${body?.likes}`);
+  }
+  if (Number(body?.dislikes) !== expectedDislikes) {
+    throw new Error(`Expected ${expectedDislikes} dislikes after ${phase}, got ${body?.dislikes}`);
+  }
+}
+
 async function expectIssueAggregate(issueId, expectedLikes, expectedDislikes, phase) {
   const { body, response } = await fetchJson('/api/issues');
   if (!response.ok) throw new Error(`Expected 200 from /api/issues after ${phase}, got ${response.status}`);
@@ -411,17 +426,29 @@ async function expectIssueAggregate(issueId, expectedLikes, expectedDislikes, ph
   }
 }
 
-async function getFirstIssueId() {
-  firstIssueIdPromise ??= (async () => {
+async function getIssueSnapshot(issueId) {
+  const { body, response } = await fetchJson('/api/issues');
+  if (!response.ok) throw new Error(`Expected 200 from /api/issues, got ${response.status}`);
+  const issue = Array.isArray(body?.issues) ? body.issues.find((item) => item.id === issueId) : null;
+  if (!issue) throw new Error(`Issue ${issueId} missing from /api/issues`);
+  return issue;
+}
+
+async function getSmokeIssueId() {
+  smokeIssueIdPromise ??= (async () => {
     const { body, response } = await fetchJson('/api/issues');
     if (!response.ok) throw new Error(`Expected 200 from /api/issues, got ${response.status}`);
     if (!Array.isArray(body?.issues) || !body.issues.length) throw new Error('No issues available');
-    const issueId = body.issues[0].id;
-    if (typeof issueId !== 'string' || !issueId) throw new Error('First issue does not include an id');
+    const issueId = body.issues[randomIndex(body.issues.length)].id;
+    if (typeof issueId !== 'string' || !issueId) throw new Error('Selected issue does not include an id');
     return issueId;
   })();
 
-  return firstIssueIdPromise;
+  return smokeIssueIdPromise;
+}
+
+function randomIndex(length) {
+  return Math.floor(Math.random() * length);
 }
 
 function normalizeOrigin(value) {

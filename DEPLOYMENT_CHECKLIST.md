@@ -76,7 +76,7 @@ GlobalPulse does not use Stripe, Toss, or other payment provider secrets. If old
 - `PRODUCTION_ADMIN_TOKEN=... PRODUCTION_VERIFY_EMAIL=operator@example.com PRODUCTION_VERIFY_EMAIL_CODE=123456 APP_PUBLIC_ORIGIN=https://your-production-domain yarn admin:verify-email` verifies the received OTP, session lookup, and logout.
 - `PRODUCTION_VERIFY_EMAIL=operator@example.com APP_PUBLIC_ORIGIN=https://your-production-domain yarn verify:production` sends a Resend OTP without returning `devCode`.
 - `/api/issues` returns at least 20 issues from D1.
-- Public verification can like, switch, and cancel an anonymous reaction, then observe persisted aggregates through `/api/issues`.
+- Public verification can like, switch, and cancel an anonymous reaction, restore baseline counts, then observe persisted aggregates through `/api/issues`.
 - Public verification can list issue comments and confirms unauthenticated comment creation returns `401`.
 - `/api/payments/create`, `/api/payments/confirm`, `/api/payments/fail`, and `/api/payments/webhook` return `410 Gone`.
 - Search, filters, and sort tabs work.

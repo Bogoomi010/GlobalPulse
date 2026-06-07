@@ -795,7 +795,8 @@ export default function App() {
 
     const email = String(form.get('email') ?? '').trim();
     const displayName = String(form.get('displayName') ?? '').trim() || 'Global member';
-    const auth = { email, displayName, countryCode: 'KR' };
+    const countryCode = String(form.get('countryCode') ?? 'KR').trim().toUpperCase().slice(0, 2) || 'KR';
+    const auth = { email, displayName, countryCode };
     if (!email) return;
 
     setAuthBusy(true);
@@ -1044,7 +1045,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#070A12] text-slate-100">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070A12]/95 backdrop-blur">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
+        <nav className="mx-auto flex max-w-7xl flex-col items-stretch gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <button className="flex items-center gap-2" onClick={() => setView('feed')}>
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-400 text-slate-950">
               <Globe2 className="h-5 w-5" />
@@ -1054,14 +1055,14 @@ export default function App() {
               <span className="block text-[11px] uppercase tracking-[0.24em] text-cyan-200/70">neutral reaction feed</span>
             </span>
           </button>
-          <div className="flex items-center gap-2">
-            <button className="nav-pill hidden sm:inline-flex" onClick={() => setView('about')}>
+          <div className="flex flex-wrap items-center gap-2">
+            <button className="nav-pill" onClick={() => setView('about')}>
               About
             </button>
-            <button className="nav-pill hidden sm:inline-flex" onClick={() => setView('policy')}>
+            <button className="nav-pill" onClick={() => setView('policy')}>
               Policy
             </button>
-            <button className="nav-pill hidden md:inline-flex" onClick={() => setView('moderation')}>
+            <button className="nav-pill" onClick={() => setView('moderation')}>
               <ShieldAlert className="h-4 w-4" />
               Ops
             </button>
@@ -1218,6 +1219,19 @@ export default function App() {
                 <label className="form-label">
                   Display name
                   <input className="form-input" name="displayName" placeholder="Pulse reader" />
+                </label>
+                <label className="form-label">
+                  Country code
+                  <input
+                    className="form-input uppercase"
+                    defaultValue="KR"
+                    inputMode="text"
+                    maxLength={2}
+                    name="countryCode"
+                    pattern="[A-Za-z]{2}"
+                    placeholder="KR"
+                    required
+                  />
                 </label>
               </>
             ) : (
@@ -1832,6 +1846,7 @@ function InfoPage({ type }: { type: 'about' | 'policy' }) {
       ) : (
         <div className="grid gap-4 text-sm leading-6 text-slate-300">
           <p>개인정보 처리, 댓글 모더레이션, 신고 대응은 실제 운영 전 운영자가 정책과 절차를 확인해야 합니다.</p>
+          <p>Payments are disabled. GlobalPulse does not provide wallet top-ups, paid comments, checkout, Stripe, Toss, or refunds for paid balances.</p>
           <p>GlobalPulse는 카드번호 등 민감한 결제 정보를 수집하거나 저장하지 않습니다.</p>
           <p>댓글은 운영 검토 대상이 될 수 있으며, 신고된 댓글은 숨김, 복원, 기각 처리될 수 있습니다.</p>
         </div>

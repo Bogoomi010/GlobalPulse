@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { URL } from 'node:url';
 
 const allowHttp = process.argv.includes('--allow-http');
@@ -43,6 +44,8 @@ await record('/api/issues returns D1 issues', async () => {
   if (body.issues.length < 20) throw new Error(`Expected at least 20 issues, got ${body.issues.length}`);
   return `${body.issues.length} issues`;
 });
+
+await record('Anonymous reaction toggle persists', runAnonymousReactionSmoke);
 
 await record('Wallet API rejects missing session', async () => {
   const { response } = await fetchJson('/api/wallet?countryCode=KR');
@@ -210,4 +213,71 @@ async function expectPaymentGone(pathname, body) {
   });
   if (response.status !== 410) throw new Error(`Expected 410, got ${response.status}`);
   return '410';
+}
+
+async function runAnonymousReactionSmoke() {
+  const { body, response } = await fetchJson('/api/issues');
+  if (!response.ok) throw new Error(`Expected 200 from /api/issues, got ${response.status}`);
+  if (!Array.isArray(body?.issues) || !body.issues.length) throw new Error('No issues available for reaction smoke');
+
+  const issueId = body.issues[0].id;
+  if (typeof issueId !== 'string' || !issueId) throw new Error('First issue does not include an id');
+
+  const anonymousToken = `verify_${randomUUID()}`;
+  let currentReaction = null;
+
+  const postReaction = async (reactionType) => {
+    const result = await fetchJson('/api/reactions', {
+      body: JSON.stringify({ anonymousToken, issueId, reactionType }),
+      method: 'POST',
+    });
+    if (!result.response.ok) throw new Error(`Expected reaction ${reactionType} to succeed, got ${result.response.status}`);
+    currentReaction = result.body?.currentReaction ?? null;
+    return result.body;
+  };
+
+  try {
+    const like = await postReaction('like');
+    if (like?.currentReaction !== 'like') throw new Error(`Expected currentReaction like, got ${like?.currentReaction}`);
+    await expectIssueAggregate(issueId, like.likes, like.dislikes, 'like');
+
+    const dislike = await postReaction('dislike');
+    if (dislike?.currentReaction !== 'dislike') {
+      throw new Error(`Expected currentReaction dislike, got ${dislike?.currentReaction}`);
+    }
+    await expectIssueAggregate(issueId, dislike.likes, dislike.dislikes, 'switch to dislike');
+
+    const cancel = await postReaction('dislike');
+    if (cancel?.currentReaction !== null) throw new Error(`Expected cancelled reaction, got ${cancel?.currentReaction}`);
+    await expectIssueAggregate(issueId, cancel.likes, cancel.dislikes, 'cancel');
+
+    return `${issueId} like, switch, cancel`;
+  } finally {
+    if (currentReaction === 'like' || currentReaction === 'dislike') {
+      try {
+        await postReaction(currentReaction);
+      } catch (error) {
+        console.error(
+          `Warning: reaction smoke cleanup failed for ${issueId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+  }
+}
+
+async function expectIssueAggregate(issueId, expectedLikes, expectedDislikes, phase) {
+  const { body, response } = await fetchJson('/api/issues');
+  if (!response.ok) throw new Error(`Expected 200 from /api/issues after ${phase}, got ${response.status}`);
+  const issue = Array.isArray(body?.issues) ? body.issues.find((item) => item.id === issueId) : null;
+  if (!issue) throw new Error(`Issue ${issueId} missing from /api/issues after ${phase}`);
+  if (Number(issue.likes) !== Number(expectedLikes)) {
+    throw new Error(`Issue ${issueId} likes did not persist after ${phase}: expected ${expectedLikes}, got ${issue.likes}`);
+  }
+  if (Number(issue.dislikes) !== Number(expectedDislikes)) {
+    throw new Error(
+      `Issue ${issueId} dislikes did not persist after ${phase}: expected ${expectedDislikes}, got ${issue.dislikes}`,
+    );
+  }
 }

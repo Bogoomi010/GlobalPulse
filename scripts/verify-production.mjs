@@ -46,6 +46,14 @@ await record('/api/issues returns D1 issues', async () => {
   return `${body.issues.length} issues`;
 });
 
+await record('Issue source links are present', async () => {
+  const { body, response } = await fetchJson('/api/issues');
+  if (!response.ok) throw new Error(`Expected 200, got ${response.status}`);
+  if (!Array.isArray(body?.issues)) throw new Error('issues must be an array');
+  const sourceCount = validateIssueSources(body.issues);
+  return `${sourceCount} source links across ${body.issues.length} issues`;
+});
+
 await record('Anonymous reaction toggle persists', runAnonymousReactionSmoke);
 
 await record('Wallet API rejects missing session', async () => {
@@ -315,6 +323,30 @@ async function getSmokeIssueId() {
 
 function randomIndex(length) {
   return Math.floor(Math.random() * length);
+}
+
+function validateIssueSources(issues) {
+  let sourceCount = 0;
+  for (const issue of issues) {
+    if (!Array.isArray(issue.sources) || !issue.sources.length) {
+      throw new Error(`Issue ${issue.id || 'unknown'} must include at least one source`);
+    }
+
+    for (const source of issue.sources) {
+      if (typeof source?.name !== 'string' || !source.name.trim()) {
+        throw new Error(`Issue ${issue.id || 'unknown'} has a source without a name`);
+      }
+      if (typeof source?.url !== 'string' || !source.url.trim()) {
+        throw new Error(`Issue ${issue.id || 'unknown'} has a source without a URL`);
+      }
+      const url = new URL(source.url);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+        throw new Error(`Issue ${issue.id || 'unknown'} source URL must use http or https`);
+      }
+      sourceCount += 1;
+    }
+  }
+  return sourceCount;
 }
 
 async function getIssueSnapshot(issueId) {

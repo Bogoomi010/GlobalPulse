@@ -30,6 +30,7 @@ This repository now contains the frontend MVP shell plus the first production AP
 - Production deploy gate blocks deployment when D1, session secret, moderation admin token, public origin, launch review acknowledgement, verified email auth settings, or old payment-provider secrets are misconfigured
 - Production D1 migration script shares the local migration list and requires an explicit confirmation value before applying remote migrations
 - Production URL verification script checks the public app, D1 issue count, protected API behavior, disabled payment API behavior, moderation and live-refresh protection, and optional Resend OTP delivery
+- Production URL verification script checks that every returned issue includes named HTTP(S) source links
 - Production URL verification script also checks anonymous reaction like, switch, cancel, baseline count restoration, and `/api/issues` aggregate persistence
 - Production URL verification script checks public comment listing and rejects unauthenticated comment writes
 - Public-copy audit checks that visible UI copy does not mention removed payment-provider, checkout, top-up, or paid-comment flows
@@ -85,6 +86,7 @@ This repository now contains the frontend MVP shell plus the first production AP
    - Done: `yarn db:migrate:production:dry-run` lists production migrations, and `yarn db:migrate:production` applies them only after `CONFIRM_PRODUCTION_MIGRATIONS` matches the configured D1 database name.
    - Done: `yarn verify:production` verifies the public deployment URL and can send a real Resend OTP when `PRODUCTION_VERIFY_EMAIL` is provided.
    - Done: `yarn launch:review` prints a non-secret launch review report for public and optional protected runtime evidence.
+   - Done: Public launch verification checks that every returned issue includes named HTTP(S) source links.
    - Done: Public launch verification checks anonymous reaction persistence by liking, switching, cancelling, restoring baseline counts, and reading `/api/issues` aggregates.
    - Done: Public launch verification checks comment list loading and unauthenticated comment write rejection.
    - Done: `yarn audit:public-copy` checks that visible UI copy avoids removed payment-provider and paid-comment wording.

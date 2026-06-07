@@ -26,6 +26,7 @@ Complete the Pre-ACK items before setting `LAUNCH_REVIEW_ACK`. Complete the Post
 - [x] `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review` produces a non-secret launch review report.
 - [x] Optional: `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md` saves a local non-secret report.
 - [x] `APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production` passes.
+- [x] Public verification confirms every returned issue includes named source links with HTTP(S) URLs.
 - [x] Public verification confirms anonymous reaction like, switch, cancel, baseline count restoration, and persisted `/api/issues` aggregates.
 - [x] Public verification confirms issue comments can be listed and unauthenticated comment creation is rejected.
 - [x] `yarn audit:public-copy` confirms public UI copy avoids removed payment-provider, checkout, top-up, and paid-comment wording.
@@ -41,9 +42,9 @@ Complete the Pre-ACK items before setting `LAUNCH_REVIEW_ACK`. Complete the Post
 ### Current Evidence Snapshot
 
 ```text
-Timestamp: 2026-06-07T05:57:33Z
+Timestamp: 2026-06-07T06:01:13Z
 Public launch review: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn launch:review --output .artifacts/launch-review-public.md
-Public production verification: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production, including anonymous reaction like/switch/cancel baseline restoration and unauthenticated comment write rejection
+Public production verification: PASS via APP_PUBLIC_ORIGIN=https://globalpulse-pages.pages.dev yarn verify:production, including source links, anonymous reaction like/switch/cancel baseline restoration, and unauthenticated comment write rejection
 Public copy audit: PASS via yarn audit:public-copy
 Public browser smoke: PASS for feed render, search, category filter, sort tabs, detail modal, anonymous reaction toggle, mobile 390px layout, and desktop 1440px layout
 Production responsive smoke: PASS for feed, issue details, login, comments, policy, and ops at 390x844 mobile and 1440x900 desktop with no horizontal overflow
